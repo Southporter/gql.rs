@@ -1,49 +1,51 @@
-#[derive(Debug, PartialEq)]
-pub enum TokenKind {
-    Start,
-    End,
-    Bang,
-    Dollar,
-    Amp,
-    OpenParen,
-    CloseParen,
-    Spread,
-    Colon,
-    Equals,
-    At,
-    OpenSquare,
-    CloseSquare,
-    OpenBrace,
-    CloseBrace,
-    Pipe,
-    Name,
-    Int,
-    Float,
-    Str,
-    BlockStr,
-    Comment,
+#[derive(Debug, PartialEq, Clone)]
+pub enum WhitespaceType {
+    Newline,
+    Space,
+    Tab,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Token<'a> {
-    kind: TokenKind,
-    start: usize,
-    end: usize,
-    line: u32,
-    column: u32,
-    value: Option<&'a str>,
+#[derive(Debug, PartialEq, Clone)]
+pub enum Token<'a> {
+    Start,
+    End,
+    Bang(usize, u32, u32),
+    Dollar(usize, u32, u32),
+    Amp(usize, u32, u32),
+    OpenParen(usize, u32, u32),
+    CloseParen(usize, u32, u32),
+    Spread(usize, u32, u32),
+    Colon(usize, u32, u32),
+    Equals(usize, u32, u32),
+    At(usize, u32, u32),
+    OpenSquare(usize, u32, u32),
+    CloseSquare(usize, u32, u32),
+    OpenBrace(usize, u32, u32),
+    CloseBrace(usize, u32, u32),
+    Pipe(usize, u32, u32),
+    Name(usize, u32, u32, &'a str),
+    Int(usize, u32, u32, i64),
+    Float(usize, u32, u32, f64),
+    Str(usize, u32, u32, &'a str),
+    BlockStr(usize, u32, u32, &'a str),
+    Comment(usize, u32, u32, &'a str),
+    Whitespace(usize, u32, u32, WhitespaceType),
 }
 
 impl<'a> Token<'a> {
-    pub fn new(kind: TokenKind, start: usize, end: usize, line: u32, column: u32, value: Option<&'a str>) -> Token<'a> {
-        Token {
-            kind,
-            start,
-            end,
-            line,
-            column,
-            value,
-        }
+    pub fn new() -> Token<'a> {
+        Token::Start
+    }
+}
+
+use std::fmt;
+
+impl<'a> fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // match self {
+        //     Start | End =>
+        // }
+        write!(f, "Token<{:?}>", self)
     }
 }
 
