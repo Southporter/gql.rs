@@ -34,6 +34,26 @@ impl<'a> Iterator for Lexer<'a> {
                     self.input.next();
                     Ok(Token::Bang(self.position, self.line, self.col))
                 },
+                '$' => {
+                    self.input.next();
+                    Ok(Token::Dollar(self.position, self.line, self.col))
+                },
+                '&' => {
+                    self.input.next();
+                    Ok(Token::Amp(self.position, self.line, self.col))
+                },
+                '|' => {
+                    self.input.next();
+                    Ok(Token::Pipe(self.position, self.line, self.col))
+                },
+                '@' => {
+                    self.input.next();
+                    Ok(Token::At(self.position, self.line, self.col))
+                },
+                ':' => {
+                    self.input.next();
+                    Ok(Token::Colon(self.position, self.line, self.col))
+                },
                 '{' => {
                     self.input.next();
                     Ok(Token::OpenBrace(self.position, self.line, self.col))
@@ -41,6 +61,22 @@ impl<'a> Iterator for Lexer<'a> {
                 '}' => {
                     self.input.next();
                     Ok(Token::CloseBrace(self.position, self.line, self.col))
+                },
+                '(' => {
+                    self.input.next();
+                    Ok(Token::OpenParen(self.position, self.line, self.col))
+                },
+                ')' => {
+                    self.input.next();
+                    Ok(Token::CloseParen(self.position, self.line, self.col))
+                },
+                '[' => {
+                    self.input.next();
+                    Ok(Token::OpenSquare(self.position, self.line, self.col))
+                },
+                ']' => {
+                    self.input.next();
+                    Ok(Token::CloseSquare(self.position, self.line, self.col))
                 },
                 ' ' => {
                     self.input.next();
@@ -115,6 +151,76 @@ mod tests {
     }
 
     #[test]
+    fn lex_dollar() {
+        println!("Testing dollar");
+        let one = tokenize("$");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::Dollar(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+
+    #[test]
+    fn lex_ampersand() {
+        println!("Testing ampersand");
+        let one = tokenize("&");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::Amp(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+
+    #[test]
+    fn lex_at_sign() {
+        println!("Testing at sign");
+        let one = tokenize("@");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::At(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+
+    #[test]
+    fn lex_pipe() {
+        println!("Testing pipe");
+        let one = tokenize("|");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::Pipe(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+
+    #[test]
+    fn lex_colon() {
+        println!("Testing colon");
+        let one = tokenize(":");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::Colon(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+
+    #[test]
     fn lex_open_brace() {
         println!("Testing open brace");
         let one = tokenize("{");
@@ -142,6 +248,61 @@ mod tests {
     }
 
     #[test]
+    fn lex_open_paren() {
+        println!("Testing open parenthesis");
+        let one = tokenize("(");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::OpenParen(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+    #[test]
+    fn lex_close_paren() {
+        println!("Testing close parenthasis");
+        let one = tokenize(")");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::CloseParen(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+
+    #[test]
+    fn lex_open_square() {
+        println!("Testing open square bracket");
+        let one = tokenize("[");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::OpenSquare(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+    #[test]
+    fn lex_close_square() {
+        println!("Testing close square bracket");
+        let one = tokenize("]");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+                   Token::CloseSquare(
+                       0,
+                       1,
+                       1,
+                   )
+        ]);
+    }
+
+    #[test]
+    #[ignore]
     fn lex_strings() {
         println!("Testing strings");
         let text = tokenize("\"text\"");
@@ -149,7 +310,7 @@ mod tests {
         assert_eq!(text.unwrap(), vec![
                    Token::Str(
                        0,
-                       1,
+                       0,
                        1,
                        "text"
                    )
@@ -164,7 +325,7 @@ mod tests {
         assert_eq!(text.unwrap(), vec![
                    Token::Name(
                        0,
-                       0,
+                       1,
                        1,
                        "name"
                    )
