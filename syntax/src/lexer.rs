@@ -3,6 +3,7 @@ use crate::extract::ExtractErrorKind;
 use std::str::CharIndices;
 use std::iter::Peekable;
 use std::iter::Iterator;
+use regex::Regex;
 
 pub struct Lexer<'a> {
     raw: &'a str,
@@ -94,7 +95,57 @@ impl<'a> Iterator for Lexer<'a> {
                     self.col = 0;
                     self.input.next();
                     Ok(Token::Whitespace(cur_pos, cur_line, cur_col, WhitespaceType::Newline))
+                },
+                '"' => {
+                    lazy_static! {
+                        static ref RE: Regex = Regex::new("\"\"\"(.*)\"\"\"").unwrap();
+                    }
+                    if RE.is_match_at(self.raw, *index) {
+                        println!("We found a block string!");
+                        Err(ExtractErrorKind::Custom("BlockStr not implemented"))
+                    } else {
+                        println!("We found a regular string!");
+                        let init_pos = *index;
+                        let start_content = *index + 1;
+                        self.input.next(); // drop first quote mark
+                        match self.input.position(|(_, s)| s == '"') {
+                            Some(end_content) => {
+                                self.position += end_content + 1;
+                                self.input.next();
+                                println!("Raw: {:?}", self.raw.get(init_pos..self.position));
+                                // self.input.next();
+                                Ok(Token::Str(init_pos, self.line, self.col, self.raw.get(start_content..=end_content).unwrap()))
+                            },
+                            None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                        }
+                    }
+
+                    // match self.input.peek() {
+                    //     Some((_, c)) => {
+                    //         match c {
+                    //             '"' => Err(ExtractErrorKind::Custom("BlockStr is not currently implemented")),
+                    //             _ => {
+                    //                 // TODO Handle case of newline in normal string
+                                    // match self.input.position(|(_, s)| *c != '"') {
+                                    //     Some(pos) => {
+                                    //         self.position += pos - init_pos;
+                                    //         self.input.next();
+                                    //         Ok(Token::Str(self.position, self.line, self.col, self.raw.get(init_pos+1..pos).unwrap()))
+                                    //     },
+                                    //     None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                                    // }
+                    //             }
+                    //         }
+                    //         Err(ExtractErrorKind::UnhandledCase)
+                    //     },
+                    //     None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 })
+                    // }
+                    // Err(ExtractErrorKind::UnhandledCase)
                 }
+                '1' ..= '9' => {
+                    // Handle integers and floats here
+                    Err(ExtractErrorKind::UnhandledCase)
+                },
                 'a' ..= 'z' | 'A' ..= 'Z' => {
                     let init_pos = *index;
                     match self.input.position(|(_,c)| !c.is_alphanumeric()) {
@@ -105,7 +156,7 @@ impl<'a> Iterator for Lexer<'a> {
                         },
                         None => Ok(Token::Name(self.position, self.line, self.col, self.raw.get(init_pos..).unwrap())),
                     }
-                }
+                },
                 _ => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
             };
             self.position += 1;
@@ -302,7 +353,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn lex_strings() {
         println!("Testing strings");
         let text = tokenize("\"text\"");
@@ -310,7 +360,7 @@ mod tests {
         assert_eq!(text.unwrap(), vec![
                    Token::Str(
                        0,
-                       0,
+                       1,
                        1,
                        "text"
                    )
@@ -330,6 +380,19 @@ mod tests {
                        "name"
                    )
         ]);
+    }
 
+    #[test]
+    fn handles_unmatched_quote() {
+        let err = tokenize("\"test");
+        assert!(err.is_err());
+        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+    }
+
+    #[test]
+    fn handles_unknown_character() {
+        let err = tokenize("%");
+        assert!(err.is_err());
+        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnknownCharacter { line: 1, col: 1 });
     }
 }

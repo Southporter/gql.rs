@@ -1,28 +1,10 @@
 // use crate::token::Token;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExtractErrorKind {
-    UnknownCharacter { line: u32, col: u32 }
+    UnmatchQuote { line: u32, col: u32 },
+    UnknownCharacter { line: u32, col: u32 },
+    UnhandledCase,
+    Custom(&'static str)
 }
-
-// fn kind_from_char(content: &char, line: u32, col: u32) -> Result<TokenKind,  ExtractErrorKind> {
-//     match content {
-//         '!' => Ok(TokenKind::Bang),
-//         '{' => Ok(TokenKind::OpenBrace),
-//         '}' => Ok(TokenKind::CloseBrace),
-//         '\n' | ' ' | '\t' => Ok(TokenKind::Whitespace),
-//         _ => Err(ExtractErrorKind::UnknownCharacter { line, col })
-//     }
-// }
-
-// pub fn one<T>(content: &char, position: usize, line: u32, col: u32) -> Result<Token<T>, ExtractErrorKind> {
-//     Ok(Token::new(
-//         kind_from_char(content, line, col)?,
-//         position,
-//         position + 1,
-//         line,
-//         col,
-//         content,
-//     ))
-// }
 
