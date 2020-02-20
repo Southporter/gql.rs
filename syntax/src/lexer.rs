@@ -98,49 +98,31 @@ impl<'a> Iterator for Lexer<'a> {
                 },
                 '"' => {
                     lazy_static! {
-                        static ref RE: Regex = Regex::new("\"\"\"(.*)\"\"\"").unwrap();
+                        static ref BLOCK: Regex = Regex::new("\"\"\"").unwrap();
+                        static ref SINGLE: Regex = Regex::new(r#""(?P<content>(?:\\.|[^"\\])*)""#).unwrap();
                     }
-                    if RE.is_match_at(self.raw, *index) {
+                    if BLOCK.is_match_at(self.raw, *index) {
                         println!("We found a block string!");
+                        // let skipped = self.input.skip(3);
                         Err(ExtractErrorKind::Custom("BlockStr not implemented"))
                     } else {
                         println!("We found a regular string!");
                         let init_pos = *index;
-                        let start_content = *index + 1;
-                        self.input.next(); // drop first quote mark
-                        match self.input.position(|(_, s)| s == '"') {
-                            Some(end_content) => {
-                                self.position += end_content + 1;
-                                self.input.next();
-                                println!("Raw: {:?}", self.raw.get(init_pos..self.position));
-                                // self.input.next();
-                                Ok(Token::Str(init_pos, self.line, self.col, self.raw.get(start_content..=end_content).unwrap()))
+                        let mut locations = SINGLE.capture_locations();
+                        match SINGLE.captures_read_at(&mut locations, self.raw, init_pos) {
+                            Some(m) => {
+                                match locations.get(1) {
+                                    Some((start_off, end_off)) => {
+                                        let new_pos = self.input.position(|(i, _)| i == init_pos + end_off + 1);
+                                        println!("start: {}, end: {}, new: {:?}", start_off, end_off, new_pos);
+                                        Ok(Token::Str(init_pos, self.line, self.col, m.as_str().get(start_off..end_off).unwrap()))
+                                    },
+                                    None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                                }
                             },
                             None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                         }
                     }
-
-                    // match self.input.peek() {
-                    //     Some((_, c)) => {
-                    //         match c {
-                    //             '"' => Err(ExtractErrorKind::Custom("BlockStr is not currently implemented")),
-                    //             _ => {
-                    //                 // TODO Handle case of newline in normal string
-                                    // match self.input.position(|(_, s)| *c != '"') {
-                                    //     Some(pos) => {
-                                    //         self.position += pos - init_pos;
-                                    //         self.input.next();
-                                    //         Ok(Token::Str(self.position, self.line, self.col, self.raw.get(init_pos+1..pos).unwrap()))
-                                    //     },
-                                    //     None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
-                                    // }
-                    //             }
-                    //         }
-                    //         Err(ExtractErrorKind::UnhandledCase)
-                    //     },
-                    //     None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 })
-                    // }
-                    // Err(ExtractErrorKind::UnhandledCase)
                 }
                 '1' ..= '9' => {
                     // Handle integers and floats here
@@ -150,7 +132,8 @@ impl<'a> Iterator for Lexer<'a> {
                     let init_pos = *index;
                     match self.input.position(|(_,c)| !c.is_alphanumeric()) {
                         Some(pos) => {
-                            self.position += pos - init_pos;
+                            println!("pos: {}, init_pos: {}", pos, init_pos);
+                            self.position += pos;
                             // self.col += pos - init_pos;
                             Ok(Token::Name(self.position, self.line, self.col, self.raw.get(init_pos..pos).unwrap()))
                         },
@@ -355,7 +338,8 @@ mod tests {
     #[test]
     fn lex_strings() {
         println!("Testing strings");
-        let text = tokenize("\"text\"");
+        let text = tokenize(r#""text""#);
+        println!("text: {:?}", text);
         assert!(text.is_ok());
         assert_eq!(text.unwrap(), vec![
                    Token::Str(
@@ -363,6 +347,22 @@ mod tests {
                        1,
                        1,
                        "text"
+                   )
+        ]);
+    }
+
+    #[test]
+    #[ignore]
+    fn lex_block_strings() {
+        println!("Testing block strings");
+        let text = tokenize("\"\"\"test\n\ntext\"\"\"");
+        assert!(text.is_ok());
+        assert_eq!(text.unwrap(), vec![
+                   Token::BlockStr(
+                       0,
+                       1,
+                       1,
+                       "text\n\ntext"
                    )
         ]);
     }
@@ -387,6 +387,12 @@ mod tests {
         let err = tokenize("\"test");
         assert!(err.is_err());
         assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+        // let err = tokenize("\"\"\"test\n\n\"\"");
+        // assert!(err.is_err());
+        // assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+        // let err = tokenize("\"\"\"test\ntest\ntest\"");
+        // assert!(err.is_err());
+        // assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
     }
 
     #[test]
