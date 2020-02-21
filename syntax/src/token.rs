@@ -5,6 +5,7 @@ pub enum WhitespaceType {
     Tab,
 }
 
+// (position, line, col, value)
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token<'a> {
     Start,

@@ -30,6 +30,7 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((index, next)) = self.input.peek() {
+            println!("Next: {}, index: {}", next, index);
             let tok = match next {
                 '!' => {
                     self.input.next();
@@ -98,24 +99,40 @@ impl<'a> Iterator for Lexer<'a> {
                 },
                 '"' => {
                     lazy_static! {
-                        static ref BLOCK: Regex = Regex::new("\"\"\"").unwrap();
-                        static ref SINGLE: Regex = Regex::new(r#""(?P<content>(?:\\.|[^"\\])*)""#).unwrap();
+                        static ref BLOCK_START: Regex = Regex::new(r#"""""#).unwrap();
+                        static ref BLOCK: Regex = Regex::new(r#""""((?:\\.|[^"\\])*)""""#).unwrap();
+                        static ref SINGLE: Regex = Regex::new(r#""((?:\\.|[^"\\])*)""#).unwrap();
                     }
-                    if BLOCK.is_match_at(self.raw, *index) {
-                        println!("We found a block string!");
-                        // let skipped = self.input.skip(3);
-                        Err(ExtractErrorKind::Custom("BlockStr not implemented"))
+                    if BLOCK_START.is_match_at(self.raw, *index) {
+                        let init_pos = *index;
+                        let mut locations = BLOCK.capture_locations();
+                        match BLOCK.captures_read_at(&mut locations, self.raw, init_pos) {
+                            Some(_) => {
+                                match locations.get(1) {
+                                    Some((start_off, end_off)) => {
+                                        match self.input.position(|(i, _)| i == init_pos + end_off + 3) {
+                                            Some(pos) => self.position = pos,
+                                            None => ()
+                                        }
+                                        Ok(Token::BlockStr(init_pos, self.line, self.col, self.raw.get(start_off..end_off).unwrap()))
+                                    },
+                                    None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                                }
+                            },
+                            None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                        }
                     } else {
-                        println!("We found a regular string!");
                         let init_pos = *index;
                         let mut locations = SINGLE.capture_locations();
                         match SINGLE.captures_read_at(&mut locations, self.raw, init_pos) {
-                            Some(m) => {
+                            Some(_) => {
                                 match locations.get(1) {
                                     Some((start_off, end_off)) => {
-                                        let new_pos = self.input.position(|(i, _)| i == init_pos + end_off + 1);
-                                        println!("start: {}, end: {}, new: {:?}", start_off, end_off, new_pos);
-                                        Ok(Token::Str(init_pos, self.line, self.col, m.as_str().get(start_off..end_off).unwrap()))
+                                        match self.input.position(|(i, _)| i == init_pos + end_off + 1) {
+                                            Some(pos) => self.position = pos,
+                                            None => ()
+                                        }
+                                        Ok(Token::Str(init_pos, self.line, self.col, self.raw.get(start_off..end_off).unwrap()))
                                     },
                                     None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                                 }
@@ -124,21 +141,24 @@ impl<'a> Iterator for Lexer<'a> {
                         }
                     }
                 }
-                '1' ..= '9' => {
-                    // Handle integers and floats here
-                    Err(ExtractErrorKind::UnhandledCase)
-                },
                 'a' ..= 'z' | 'A' ..= 'Z' => {
                     let init_pos = *index;
                     match self.input.position(|(_,c)| !c.is_alphanumeric()) {
                         Some(pos) => {
-                            println!("pos: {}, init_pos: {}", pos, init_pos);
+                            let init_col = self.col;
+                            let end = init_pos + pos;
                             self.position += pos;
-                            // self.col += pos - init_pos;
-                            Ok(Token::Name(self.position, self.line, self.col, self.raw.get(init_pos..pos).unwrap()))
+                            // self.col += ;
+                            // println!("init_pos: {}, pos: {}, end: {}", init_pos, pos, end);
+                            // println!("str: {:?}", self.raw.get(init_pos..end));
+                            Ok(Token::Name(init_pos, self.line, init_col, self.raw.get(init_pos..end).unwrap()))
                         },
                         None => Ok(Token::Name(self.position, self.line, self.col, self.raw.get(init_pos..).unwrap())),
                     }
+                },
+                '1' ..= '9' => {
+                    // Handle integers and floats here
+                    Err(ExtractErrorKind::UnhandledCase)
                 },
                 _ => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
             };
@@ -339,7 +359,6 @@ mod tests {
     fn lex_strings() {
         println!("Testing strings");
         let text = tokenize(r#""text""#);
-        println!("text: {:?}", text);
         assert!(text.is_ok());
         assert_eq!(text.unwrap(), vec![
                    Token::Str(
@@ -352,17 +371,18 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn lex_block_strings() {
         println!("Testing block strings");
-        let text = tokenize("\"\"\"test\n\ntext\"\"\"");
+        let text = tokenize(r#""""test
+
+text""""#);
         assert!(text.is_ok());
         assert_eq!(text.unwrap(), vec![
                    Token::BlockStr(
                        0,
                        1,
                        1,
-                       "text\n\ntext"
+                       "test\n\ntext"
                    )
         ]);
     }
@@ -383,16 +403,50 @@ mod tests {
     }
 
     #[test]
+    fn lex_query() {
+        println!("Test query");
+        let query = tokenize(r#"query {
+  hero {
+    name
+  }
+  droid(id: "2000") {
+    name
+  }
+}"#);
+        assert!(query.is_ok());
+        assert_eq!(query.unwrap(), vec![
+            Token::Name(0,1,1, "query"),
+            Token::Whitespace(6, 1, 7, WhitespaceType::Space),
+            Token::OpenBrace(7, 1, 8),
+            Token::Whitespace(8, 1, 9, WhitespaceType::Newline),
+            Token::Whitespace(10, 2, 1, WhitespaceType::Space),
+            Token::Whitespace(11, 2, 2, WhitespaceType::Space),
+            Token::Name(12,2,3, "hero"),
+            Token::Whitespace(15, 2, 7, WhitespaceType::Space),
+            Token::OpenBrace(16, 2, 8),
+            Token::Whitespace(17, 2, 9, WhitespaceType::Newline),
+            Token::Whitespace(18, 3, 1, WhitespaceType::Space),
+            Token::Whitespace(19, 3, 2, WhitespaceType::Space),
+            Token::Whitespace(18, 3, 3, WhitespaceType::Space),
+            Token::Whitespace(19, 3, 4, WhitespaceType::Space),
+            Token::Name(20,3,5, "hero"),
+            Token::Whitespace(25, 3, 9, WhitespaceType::Newline),
+            Token::Whitespace(26, 4, 1, WhitespaceType::Space),
+            Token::Whitespace(27, 5, 2, WhitespaceType::Space),
+        ])
+    }
+
+    #[test]
     fn handles_unmatched_quote() {
         let err = tokenize("\"test");
         assert!(err.is_err());
         assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
-        // let err = tokenize("\"\"\"test\n\n\"\"");
-        // assert!(err.is_err());
-        // assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
-        // let err = tokenize("\"\"\"test\ntest\ntest\"");
-        // assert!(err.is_err());
-        // assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+        let err = tokenize("\"\"\"test\n\n\"\"");
+        assert!(err.is_err());
+        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+        let err = tokenize("\"\"\"test\ntest\ntest\"");
+        assert!(err.is_err());
+        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
     }
 
     #[test]
