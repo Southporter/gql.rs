@@ -2,9 +2,9 @@
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExtractErrorKind {
-    UnmatchQuote { line: u32, col: u32 },
-    UnknownCharacter { line: u32, col: u32 },
+    UnmatchQuote { line: usize, col: usize },
+    UnknownCharacter { line: usize, col: usize },
     UnhandledCase,
-    Custom(&'static str)
+    // Custom(&'static str)
 }
 

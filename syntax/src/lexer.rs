@@ -5,12 +5,13 @@ use std::iter::Peekable;
 use std::iter::Iterator;
 use regex::Regex;
 
+#[derive(Debug)]
 pub struct Lexer<'a> {
     raw: &'a str,
     input: Peekable<CharIndices<'a>>,
     pub position: usize,
-    pub line: u32,
-    pub col: u32,
+    pub line: usize,
+    pub col: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -23,7 +24,21 @@ impl<'a> Lexer<'a> {
             col: 1,
         }
     }
+
+    fn advance(&mut self) {
+        self.input.next();
+        self.position += 1;
+        self.col += 1;
+    }
 }
+
+use std::fmt;
+impl<'a> fmt::Display for Lexer<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Lexer<position: {}, line: {}, col: {}>", self.position, self.line, self.col)
+    }
+}
+
 
 impl<'a> Iterator for Lexer<'a> {
     type Item = Result<Token<'a>, ExtractErrorKind>;
@@ -33,67 +48,82 @@ impl<'a> Iterator for Lexer<'a> {
             println!("Next: {}, index: {}", next, index);
             let tok = match next {
                 '!' => {
-                    self.input.next();
-                    Ok(Token::Bang(self.position, self.line, self.col))
+                    let tok = Ok(Token::Bang(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '$' => {
-                    self.input.next();
-                    Ok(Token::Dollar(self.position, self.line, self.col))
+                    let tok = Ok(Token::Dollar(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '&' => {
-                    self.input.next();
-                    Ok(Token::Amp(self.position, self.line, self.col))
+                    let tok = Ok(Token::Amp(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '|' => {
-                    self.input.next();
-                    Ok(Token::Pipe(self.position, self.line, self.col))
+                    let tok = Ok(Token::Pipe(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '@' => {
-                    self.input.next();
-                    Ok(Token::At(self.position, self.line, self.col))
+                    let tok = Ok(Token::At(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 ':' => {
-                    self.input.next();
-                    Ok(Token::Colon(self.position, self.line, self.col))
+                    let tok = Ok(Token::Colon(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '{' => {
-                    self.input.next();
-                    Ok(Token::OpenBrace(self.position, self.line, self.col))
+                    let tok = Ok(Token::OpenBrace(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '}' => {
-                    self.input.next();
-                    Ok(Token::CloseBrace(self.position, self.line, self.col))
+                    let tok = Ok(Token::CloseBrace(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '(' => {
-                    self.input.next();
-                    Ok(Token::OpenParen(self.position, self.line, self.col))
+                    let tok = Ok(Token::OpenParen(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 ')' => {
-                    self.input.next();
-                    Ok(Token::CloseParen(self.position, self.line, self.col))
+                    let tok = Ok(Token::CloseParen(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 '[' => {
-                    self.input.next();
-                    Ok(Token::OpenSquare(self.position, self.line, self.col))
+                    let tok = Ok(Token::OpenSquare(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 ']' => {
-                    self.input.next();
-                    Ok(Token::CloseSquare(self.position, self.line, self.col))
+                    let tok = Ok(Token::CloseSquare(self.position, self.line, self.col));
+                    self.advance();
+                    tok
                 },
                 ' ' => {
-                    self.input.next();
-                    Ok(Token::Whitespace(self.position, self.line, self.col, WhitespaceType::Space))
+                    let tok = Ok(Token::Whitespace(self.position, self.line, self.col, WhitespaceType::Space));
+                    self.advance();
+                    tok
                 },
                 '\t' => {
-                    self.input.next();
-                    Ok(Token::Whitespace(self.position, self.line, self.col, WhitespaceType::Tab))
+                    let tok = Ok(Token::Whitespace(self.position, self.line, self.col, WhitespaceType::Tab));
+                    self.advance();
+                    tok
                 },
                 '\n' => {
                     let cur_pos  = self.position;
                     let cur_line = self.line;
                     let cur_col  = self.col;
                     self.line += 1;
-                    self.col = 0;
+                    self.col = 1;
+                    self.position += 1;
                     self.input.next();
                     Ok(Token::Whitespace(cur_pos, cur_line, cur_col, WhitespaceType::Newline))
                 },
@@ -143,18 +173,23 @@ impl<'a> Iterator for Lexer<'a> {
                 }
                 'a' ..= 'z' | 'A' ..= 'Z' => {
                     let init_pos = *index;
-                    match self.input.position(|(_,c)| !c.is_alphanumeric()) {
-                        Some(pos) => {
-                            let init_col = self.col;
-                            let end = init_pos + pos;
-                            self.position += pos;
-                            // self.col += ;
-                            // println!("init_pos: {}, pos: {}, end: {}", init_pos, pos, end);
-                            // println!("str: {:?}", self.raw.get(init_pos..end));
-                            Ok(Token::Name(init_pos, self.line, init_col, self.raw.get(init_pos..end).unwrap()))
-                        },
-                        None => Ok(Token::Name(self.position, self.line, self.col, self.raw.get(init_pos..).unwrap())),
+                    let mut end_pos = 0;
+                    while let Some((_, c)) = self.input.peek() {
+                        println!("c is {}", c);
+                        if c.is_alphanumeric() {
+                            self.input.next();
+                            end_pos += 1;
+                        } else {
+                            break;
+                        }
                     }
+                    println!("new index: {}", end_pos);
+                    self.position += end_pos;
+                    let init_col = self.col;
+                    self.col += end_pos;
+                    end_pos += init_pos;
+                    println!("str: {:?}", self.raw.get(init_pos..end_pos));
+                    Ok(Token::Name(init_pos, self.line, init_col, self.raw.get(init_pos..end_pos).unwrap()))
                 },
                 '1' ..= '9' => {
                     // Handle integers and floats here
@@ -162,8 +197,6 @@ impl<'a> Iterator for Lexer<'a> {
                 },
                 _ => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
             };
-            self.position += 1;
-            self.col += 1;
             Some(tok)
         } else {
             None
@@ -171,6 +204,17 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
+/// Destruct the string into a Vec of tokens.
+/// # Examples
+/// ```
+/// let statement = r#"type Query {
+///  hero(episode: Episode): Character
+///  droid(id: ID!): Droid
+/// }"#
+/// let tokens = tokenize(&statement);
+/// assert!(tokens.is_ok());
+/// println!("Tokens: {:?}", tokens);
+/// ````
 pub fn tokenize<'a>(input: &'a str) -> Result<Vec<Token<'a>>, ExtractErrorKind> {
     let state = Lexer::new(input);
     let results: Result<Vec<Token>, ExtractErrorKind> = state.collect();
@@ -415,24 +459,49 @@ text""""#);
 }"#);
         assert!(query.is_ok());
         assert_eq!(query.unwrap(), vec![
-            Token::Name(0,1,1, "query"),
-            Token::Whitespace(6, 1, 7, WhitespaceType::Space),
-            Token::OpenBrace(7, 1, 8),
-            Token::Whitespace(8, 1, 9, WhitespaceType::Newline),
-            Token::Whitespace(10, 2, 1, WhitespaceType::Space),
-            Token::Whitespace(11, 2, 2, WhitespaceType::Space),
-            Token::Name(12,2,3, "hero"),
-            Token::Whitespace(15, 2, 7, WhitespaceType::Space),
-            Token::OpenBrace(16, 2, 8),
-            Token::Whitespace(17, 2, 9, WhitespaceType::Newline),
-            Token::Whitespace(18, 3, 1, WhitespaceType::Space),
-            Token::Whitespace(19, 3, 2, WhitespaceType::Space),
-            Token::Whitespace(18, 3, 3, WhitespaceType::Space),
-            Token::Whitespace(19, 3, 4, WhitespaceType::Space),
-            Token::Name(20,3,5, "hero"),
+            Token::Name(0, 1, 1, "query"),
+            Token::Whitespace(5, 1, 6, WhitespaceType::Space),
+            Token::OpenBrace(6, 1, 7),
+            Token::Whitespace(7, 1, 8, WhitespaceType::Newline),
+            Token::Whitespace(8, 2, 1, WhitespaceType::Space),
+            Token::Whitespace(9, 2, 2, WhitespaceType::Space),
+            Token::Name(10, 2, 3, "hero"),
+            Token::Whitespace(14, 2, 7, WhitespaceType::Space),
+            Token::OpenBrace(15, 2, 8),
+            Token::Whitespace(16, 2, 9, WhitespaceType::Newline),
+            Token::Whitespace(17, 3, 1, WhitespaceType::Space),
+            Token::Whitespace(18, 3, 2, WhitespaceType::Space),
+            Token::Whitespace(19, 3, 3, WhitespaceType::Space),
+            Token::Whitespace(20, 3, 4, WhitespaceType::Space),
+            Token::Name(21, 3, 5, "name"),
             Token::Whitespace(25, 3, 9, WhitespaceType::Newline),
             Token::Whitespace(26, 4, 1, WhitespaceType::Space),
-            Token::Whitespace(27, 5, 2, WhitespaceType::Space),
+            Token::Whitespace(27, 4, 2, WhitespaceType::Space),
+            Token::CloseBrace(28, 4, 3),
+            Token::Whitespace(29, 4, 4, WhitespaceType::Newline),
+            Token::Whitespace(30, 5, 1, WhitespaceType::Space),
+            Token::Whitespace(31, 5, 2, WhitespaceType::Space),
+            Token::Name(32, 5, 3, "droid"),
+            Token::OpenParen(37, 5, 8),
+            Token::Name(38, 5, 9, "id"),
+            Token::Colon(40, 5, 11),
+            Token::Whitespace(41, 5, 12, WhitespaceType::Space),
+            Token::Str(42, 5, 13, "2000"),
+            Token::CloseParen(47, 5, 18),
+            Token::Whitespace(48, 5, 19, WhitespaceType::Space),
+            Token::OpenBrace(49, 5, 20),
+            Token::Whitespace(50, 5, 21, WhitespaceType::Newline),
+            Token::Whitespace(51, 6, 1, WhitespaceType::Space),
+            Token::Whitespace(52, 6, 2, WhitespaceType::Space),
+            Token::Whitespace(53, 6, 3, WhitespaceType::Space),
+            Token::Whitespace(54, 6, 4, WhitespaceType::Space),
+            Token::Name(55, 6, 5, "name"),
+            Token::Whitespace(59, 6, 9, WhitespaceType::Newline),
+            Token::Whitespace(60, 7, 1, WhitespaceType::Space),
+            Token::Whitespace(61, 7, 2, WhitespaceType::Space),
+            Token::CloseBrace(62, 7, 3),
+            Token::Whitespace(63, 7, 4, WhitespaceType::Newline),
+            Token::CloseBrace(64, 8, 1),
         ])
     }
 
