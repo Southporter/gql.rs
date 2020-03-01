@@ -197,6 +197,9 @@ impl<'a> Iterator for Lexer<'a> {
                     // Handle integers and floats here
                     Err(ExtractErrorKind::UnhandledCase)
                 },
+                '.' => {
+                    Err(ExtractErrorKind::UnhandledCase)
+                }
                 _ => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
             };
             Some(tok)
@@ -243,11 +246,7 @@ mod tests {
         let one = tokenize("!");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::Bang(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Bang(0, 1, 1)
         ]);
     }
 
@@ -257,11 +256,7 @@ mod tests {
         let one = tokenize("$");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::Dollar(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Dollar(0, 1, 1)
         ]);
     }
 
@@ -403,6 +398,36 @@ mod tests {
     }
 
     #[test]
+    fn lex_spread() {
+        println!("Testing spread");
+        let one = tokenize("...");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+            Token::Spread(0, 1, 1)
+        ]);
+    }
+
+    #[test]
+    fn lex_int() {
+        println!("Testing spread");
+        let one = tokenize("123456");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+            Token::Int(0, 1, 1, 123456i64)
+        ]);
+    }
+
+    #[test]
+    fn lex_float() {
+        println!("Testing float");
+        let one = tokenize("1.23456789");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+            Token::Float(0, 1, 1, 1.234556789f64)
+        ]);
+    }
+
+    #[test]
     fn lex_strings() {
         println!("Testing strings");
         let text = tokenize(r#""text""#);
@@ -506,6 +531,113 @@ text""""#);
             Token::Whitespace(64, 7, 4, WhitespaceType::Newline),
             Token::CloseBrace(65, 8, 1),
         ])
+    }
+
+    #[test]
+    fn lex_type() {
+        let t = tokenize(r#"type Query {
+  hero(episode: Episode): Character
+  droid(id: ID!): Droid
+}
+"#);
+        assert!(t.is_ok());
+        assert_eq!(t.unwrap(), vec![
+            Token::Name(0, 1, 1, "type"),
+            Token::Whitespace(4, 1, 5, WhitespaceType::Space),
+            Token::Name(5, 1, 6, "Query"),
+            Token::Whitespace(10, 1, 11, WhitespaceType::Space),
+            Token::OpenBrace(11, 1, 12),
+            Token::Whitespace(12, 1, 13, WhitespaceType::Newline),
+            Token::Whitespace(13, 2, 1, WhitespaceType::Space),
+            Token::Whitespace(14, 2, 2, WhitespaceType::Space),
+            Token::Name(15, 2, 3, "hero"),
+            Token::OpenParen(19, 2, 7),
+            Token::Name(20, 2, 8, "episode"),
+            Token::Colon(27, 2, 15),
+            Token::Whitespace(28, 2, 16, WhitespaceType::Space),
+            Token::Name(29, 2, 17, "Episode"),
+            Token::CloseParen(36, 2, 24),
+            Token::Colon(37, 2, 25),
+            Token::Whitespace(38, 2, 26, WhitespaceType::Space),
+            Token::Name(39, 2, 27, "Character"),
+            Token::Whitespace(48, 2, 36, WhitespaceType::Newline),
+            Token::Whitespace(49, 3, 1, WhitespaceType::Space),
+            Token::Whitespace(50, 3, 2, WhitespaceType::Space),
+            Token::Name(51, 3, 3, "droid"),
+            Token::OpenParen(56, 3, 8),
+            Token::Name(57, 3, 9, "id"),
+            Token::Colon(59, 3, 11),
+            Token::Whitespace(60, 3, 12, WhitespaceType::Space),
+            Token::Name(61, 3, 13, "ID"),
+            Token::Bang(63, 3, 15),
+            Token::CloseParen(64, 3, 16),
+            Token::Colon(65, 3, 17),
+            Token::Whitespace(66, 3, 18, WhitespaceType::Space),
+            Token::Name(67, 3, 19, "Droid"),
+            Token::Whitespace(72, 3, 24, WhitespaceType::Newline),
+            Token::CloseBrace(73, 4, 1),
+            Token::Whitespace(74, 4, 2, WhitespaceType::Newline),
+        ])
+    }
+
+    #[test]
+    fn lex_fragment() {
+        let fragment = tokenize(r#"query {
+  hero {
+    name
+    ... on Human {
+      height
+    }
+  }
+}"#);
+        assert!(fragment.is_ok());
+        assert_eq!(fragment.unwrap(), vec![
+            Token::Name(0, 1, 1, "query"),
+            Token::Whitespace(5, 1, 6, WhitespaceType::Space),
+            Token::OpenBrace(6, 1, 7),
+            Token::Whitespace(7, 1, 8, WhitespaceType::Newline),
+            Token::Whitespace(8, 2, 1, WhitespaceType::Space),
+            Token::Whitespace(9, 2, 2, WhitespaceType::Space),
+            Token::Name(10, 2, 3, "hero"),
+            Token::Whitespace(11, 2, 7, WhitespaceType::Space),
+            Token::OpenBrace(12, 2, 8),
+            Token::Whitespace(13, 2, 9, WhitespaceType::Newline),
+            Token::Whitespace(14, 3, 1, WhitespaceType::Space),
+            Token::Whitespace(15, 3, 2, WhitespaceType::Space),
+            Token::Whitespace(16, 3, 3, WhitespaceType::Space),
+            Token::Whitespace(17, 3, 4, WhitespaceType::Space),
+            Token::Name(18, 3, 5, "name"),
+            Token::Whitespace(22, 3, 9, WhitespaceType::Newline),
+            Token::Whitespace(23, 4, 1, WhitespaceType::Space),
+            Token::Whitespace(24, 4, 2, WhitespaceType::Space),
+            Token::Whitespace(25, 4, 3, WhitespaceType::Space),
+            Token::Whitespace(26, 4, 4, WhitespaceType::Space),
+            Token::Spread(27, 4, 5),
+            Token::Whitespace(30, 4, 8, WhitespaceType::Space),
+            Token::Name(31, 4, 9, "on"),
+            Token::Whitespace(33, 4, 11, WhitespaceType::Space),
+            Token::Name(34, 4, 12, "Human"),
+            Token::Whitespace(39, 4, 17, WhitespaceType::Space),
+            Token::OpenBrace(40, 4, 18),
+            Token::Whitespace(41, 4, 19, WhitespaceType::Newline),
+            Token::Whitespace(42, 5, 1, WhitespaceType::Space),
+            Token::Whitespace(43, 5, 2, WhitespaceType::Space),
+            Token::Whitespace(44, 5, 3, WhitespaceType::Space),
+            Token::Whitespace(45, 5, 4, WhitespaceType::Space),
+            Token::Whitespace(46, 5, 5, WhitespaceType::Space),
+            Token::Whitespace(47, 5, 6, WhitespaceType::Space),
+            Token::Name(48, 5, 7, "height"),
+            Token::Whitespace(54, 5, 13, WhitespaceType::Newline),
+            Token::Whitespace(55, 6, 1, WhitespaceType::Space),
+            Token::Whitespace(56, 6, 2, WhitespaceType::Space),
+            Token::Whitespace(57, 6, 3, WhitespaceType::Space),
+            Token::Whitespace(58, 6, 4, WhitespaceType::Space),
+            Token::CloseBrace(59, 6, 5),
+            Token::Whitespace(60, 6, 6, WhitespaceType::Newline),
+            Token::Whitespace(61, 7, 1, WhitespaceType::Space),
+            Token::Whitespace(62, 7, 2, WhitespaceType::Space),
+            Token::CloseBrace(63, 7, 3),
+        ]);
     }
 
     #[test]
