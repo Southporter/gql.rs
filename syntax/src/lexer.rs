@@ -158,11 +158,16 @@ impl<'a> Iterator for Lexer<'a> {
                             Some(_) => {
                                 match locations.get(1) {
                                     Some((start_off, end_off)) => {
-                                        match self.input.position(|(i, _)| i == init_pos + end_off + 1) {
-                                            Some(pos) => self.position = pos,
+                                        println!("Single: init: {}, end: {}", init_pos, end_off);
+                                        let cur_col = self.col;
+                                        match self.input.position(|(i, _)| i == end_off) {
+                                            Some(pos) => {
+                                                self.position += pos + 1;
+                                                self.col += pos + 1;
+                                            },
                                             None => ()
                                         }
-                                        Ok(Token::Str(init_pos, self.line, self.col, self.raw.get(start_off..end_off).unwrap()))
+                                        Ok(Token::Str(init_pos, self.line, cur_col, self.raw.get(start_off..end_off).unwrap()))
                                     },
                                     None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                                 }
@@ -175,7 +180,6 @@ impl<'a> Iterator for Lexer<'a> {
                     let init_pos = *index;
                     let mut end_pos = 0;
                     while let Some((_, c)) = self.input.peek() {
-                        println!("c is {}", c);
                         if c.is_alphanumeric() {
                             self.input.next();
                             end_pos += 1;
@@ -183,12 +187,10 @@ impl<'a> Iterator for Lexer<'a> {
                             break;
                         }
                     }
-                    println!("new index: {}", end_pos);
                     self.position += end_pos;
                     let init_col = self.col;
                     self.col += end_pos;
                     end_pos += init_pos;
-                    println!("str: {:?}", self.raw.get(init_pos..end_pos));
                     Ok(Token::Name(init_pos, self.line, init_col, self.raw.get(init_pos..end_pos).unwrap()))
                 },
                 '1' ..= '9' => {
@@ -207,10 +209,11 @@ impl<'a> Iterator for Lexer<'a> {
 /// Destruct the string into a Vec of tokens.
 /// # Examples
 /// ```
+/// use syntax::lexer::tokenize;
 /// let statement = r#"type Query {
 ///  hero(episode: Episode): Character
 ///  droid(id: ID!): Droid
-/// }"#
+/// }"#;
 /// let tokens = tokenize(&statement);
 /// assert!(tokens.is_ok());
 /// println!("Tokens: {:?}", tokens);
@@ -487,21 +490,21 @@ text""""#);
             Token::Colon(40, 5, 11),
             Token::Whitespace(41, 5, 12, WhitespaceType::Space),
             Token::Str(42, 5, 13, "2000"),
-            Token::CloseParen(47, 5, 18),
-            Token::Whitespace(48, 5, 19, WhitespaceType::Space),
-            Token::OpenBrace(49, 5, 20),
-            Token::Whitespace(50, 5, 21, WhitespaceType::Newline),
-            Token::Whitespace(51, 6, 1, WhitespaceType::Space),
-            Token::Whitespace(52, 6, 2, WhitespaceType::Space),
-            Token::Whitespace(53, 6, 3, WhitespaceType::Space),
-            Token::Whitespace(54, 6, 4, WhitespaceType::Space),
-            Token::Name(55, 6, 5, "name"),
-            Token::Whitespace(59, 6, 9, WhitespaceType::Newline),
-            Token::Whitespace(60, 7, 1, WhitespaceType::Space),
-            Token::Whitespace(61, 7, 2, WhitespaceType::Space),
-            Token::CloseBrace(62, 7, 3),
-            Token::Whitespace(63, 7, 4, WhitespaceType::Newline),
-            Token::CloseBrace(64, 8, 1),
+            Token::CloseParen(48, 5, 19),
+            Token::Whitespace(49, 5, 20, WhitespaceType::Space),
+            Token::OpenBrace(50, 5, 21),
+            Token::Whitespace(51, 5, 22, WhitespaceType::Newline),
+            Token::Whitespace(52, 6, 1, WhitespaceType::Space),
+            Token::Whitespace(53, 6, 2, WhitespaceType::Space),
+            Token::Whitespace(54, 6, 3, WhitespaceType::Space),
+            Token::Whitespace(55, 6, 4, WhitespaceType::Space),
+            Token::Name(56, 6, 5, "name"),
+            Token::Whitespace(60, 6, 9, WhitespaceType::Newline),
+            Token::Whitespace(61, 7, 1, WhitespaceType::Space),
+            Token::Whitespace(62, 7, 2, WhitespaceType::Space),
+            Token::CloseBrace(63, 7, 3),
+            Token::Whitespace(64, 7, 4, WhitespaceType::Newline),
+            Token::CloseBrace(65, 8, 1),
         ])
     }
 

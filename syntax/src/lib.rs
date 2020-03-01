@@ -1,6 +1,6 @@
 #[macro_use] extern crate lazy_static;
 pub mod token;
-mod lexer;
+pub mod lexer;
 mod extract;
 
 pub struct AST {
