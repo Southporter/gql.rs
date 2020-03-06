@@ -30,6 +30,13 @@ impl<'a> Lexer<'a> {
         self.position += 1;
         self.col += 1;
     }
+
+    fn advance_n(&mut self, n: usize) {
+        self.position += n;
+        let new_pos = self.position - 1;
+        self.col += n;
+        self.input.position(|(i, _)| { println!("Advance N: {} of {}", i, n); i == new_pos });
+    }
 }
 
 use std::fmt;
@@ -198,7 +205,20 @@ impl<'a> Iterator for Lexer<'a> {
                     Err(ExtractErrorKind::UnhandledCase)
                 },
                 '.' => {
-                    Err(ExtractErrorKind::UnhandledCase)
+                    lazy_static! {
+                        static ref SPREAD: Regex = Regex::new("...").unwrap();
+                    }
+                    if SPREAD.is_match_at(self.raw, *index) {
+                        let cur_col = self.col;
+                        let cur_pos = self.position;
+                        self.advance_n(3);
+                        println!("pos: {}..{}", cur_pos, self.position);
+                        println!("pos: {}..{}", cur_col, self.col);
+                        println!("next: {:?}", self.input.peek());
+                        Ok(Token::Spread(cur_pos, self.line, cur_col))
+                    } else {
+                        Err(ExtractErrorKind::UnexpectedCharacter { line: self.line, col: self.col })
+                    }
                 }
                 _ => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
             };
@@ -409,7 +429,7 @@ mod tests {
 
     #[test]
     fn lex_int() {
-        println!("Testing spread");
+        println!("Testing int");
         let one = tokenize("123456");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
@@ -599,44 +619,46 @@ text""""#);
             Token::Whitespace(8, 2, 1, WhitespaceType::Space),
             Token::Whitespace(9, 2, 2, WhitespaceType::Space),
             Token::Name(10, 2, 3, "hero"),
-            Token::Whitespace(11, 2, 7, WhitespaceType::Space),
-            Token::OpenBrace(12, 2, 8),
-            Token::Whitespace(13, 2, 9, WhitespaceType::Newline),
-            Token::Whitespace(14, 3, 1, WhitespaceType::Space),
-            Token::Whitespace(15, 3, 2, WhitespaceType::Space),
-            Token::Whitespace(16, 3, 3, WhitespaceType::Space),
-            Token::Whitespace(17, 3, 4, WhitespaceType::Space),
-            Token::Name(18, 3, 5, "name"),
-            Token::Whitespace(22, 3, 9, WhitespaceType::Newline),
-            Token::Whitespace(23, 4, 1, WhitespaceType::Space),
-            Token::Whitespace(24, 4, 2, WhitespaceType::Space),
-            Token::Whitespace(25, 4, 3, WhitespaceType::Space),
-            Token::Whitespace(26, 4, 4, WhitespaceType::Space),
-            Token::Spread(27, 4, 5),
-            Token::Whitespace(30, 4, 8, WhitespaceType::Space),
-            Token::Name(31, 4, 9, "on"),
-            Token::Whitespace(33, 4, 11, WhitespaceType::Space),
-            Token::Name(34, 4, 12, "Human"),
-            Token::Whitespace(39, 4, 17, WhitespaceType::Space),
-            Token::OpenBrace(40, 4, 18),
-            Token::Whitespace(41, 4, 19, WhitespaceType::Newline),
-            Token::Whitespace(42, 5, 1, WhitespaceType::Space),
-            Token::Whitespace(43, 5, 2, WhitespaceType::Space),
-            Token::Whitespace(44, 5, 3, WhitespaceType::Space),
-            Token::Whitespace(45, 5, 4, WhitespaceType::Space),
-            Token::Whitespace(46, 5, 5, WhitespaceType::Space),
-            Token::Whitespace(47, 5, 6, WhitespaceType::Space),
-            Token::Name(48, 5, 7, "height"),
-            Token::Whitespace(54, 5, 13, WhitespaceType::Newline),
-            Token::Whitespace(55, 6, 1, WhitespaceType::Space),
-            Token::Whitespace(56, 6, 2, WhitespaceType::Space),
-            Token::Whitespace(57, 6, 3, WhitespaceType::Space),
-            Token::Whitespace(58, 6, 4, WhitespaceType::Space),
-            Token::CloseBrace(59, 6, 5),
-            Token::Whitespace(60, 6, 6, WhitespaceType::Newline),
-            Token::Whitespace(61, 7, 1, WhitespaceType::Space),
-            Token::Whitespace(62, 7, 2, WhitespaceType::Space),
-            Token::CloseBrace(63, 7, 3),
+            Token::Whitespace(14, 2, 7, WhitespaceType::Space),
+            Token::OpenBrace(15, 2, 8),
+            Token::Whitespace(16, 2, 9, WhitespaceType::Newline),
+            Token::Whitespace(17, 3, 1, WhitespaceType::Space),
+            Token::Whitespace(18, 3, 2, WhitespaceType::Space),
+            Token::Whitespace(19, 3, 3, WhitespaceType::Space),
+            Token::Whitespace(20, 3, 4, WhitespaceType::Space),
+            Token::Name(21, 3, 5, "name"),
+            Token::Whitespace(25, 3, 9, WhitespaceType::Newline),
+            Token::Whitespace(26, 4, 1, WhitespaceType::Space),
+            Token::Whitespace(27, 4, 2, WhitespaceType::Space),
+            Token::Whitespace(28, 4, 3, WhitespaceType::Space),
+            Token::Whitespace(29, 4, 4, WhitespaceType::Space),
+            Token::Spread(30, 4, 5),
+            Token::Whitespace(33, 4, 8, WhitespaceType::Space),
+            Token::Name(34, 4, 9, "on"),
+            Token::Whitespace(36, 4, 11, WhitespaceType::Space),
+            Token::Name(37, 4, 12, "Human"),
+            Token::Whitespace(42, 4, 17, WhitespaceType::Space),
+            Token::OpenBrace(43, 4, 18),
+            Token::Whitespace(44, 4, 19, WhitespaceType::Newline),
+            Token::Whitespace(45, 5, 1, WhitespaceType::Space),
+            Token::Whitespace(46, 5, 2, WhitespaceType::Space),
+            Token::Whitespace(47, 5, 3, WhitespaceType::Space),
+            Token::Whitespace(48, 5, 4, WhitespaceType::Space),
+            Token::Whitespace(49, 5, 5, WhitespaceType::Space),
+            Token::Whitespace(50, 5, 6, WhitespaceType::Space),
+            Token::Name(51, 5, 7, "height"),
+            Token::Whitespace(57, 5, 13, WhitespaceType::Newline),
+            Token::Whitespace(58, 6, 1, WhitespaceType::Space),
+            Token::Whitespace(59, 6, 2, WhitespaceType::Space),
+            Token::Whitespace(60, 6, 3, WhitespaceType::Space),
+            Token::Whitespace(61, 6, 4, WhitespaceType::Space),
+            Token::CloseBrace(62, 6, 5),
+            Token::Whitespace(63, 6, 6, WhitespaceType::Newline),
+            Token::Whitespace(64, 7, 1, WhitespaceType::Space),
+            Token::Whitespace(65, 7, 2, WhitespaceType::Space),
+            Token::CloseBrace(66, 7, 3),
+            Token::Whitespace(67, 7, 4, WhitespaceType::Newline),
+            Token::CloseBrace(68, 8, 1),
         ]);
     }
 
