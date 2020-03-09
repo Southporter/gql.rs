@@ -37,6 +37,11 @@ impl<'a> Lexer<'a> {
         self.col += n;
         self.input.position(|(i, _)| { println!("Advance N: {} of {}", i, n); i == new_pos });
     }
+    fn advance_to(&mut self, pos: usize) {
+        self.position = pos;
+        self.col = pos;
+        self.input.position(|(i, _)| i == pos - 1);
+    }
 }
 
 use std::fmt;
@@ -200,9 +205,67 @@ impl<'a> Iterator for Lexer<'a> {
                     end_pos += init_pos;
                     Ok(Token::Name(init_pos, self.line, init_col, self.raw.get(init_pos..end_pos).unwrap()))
                 },
-                '1' ..= '9' => {
-                    // Handle integers and floats here
-                    Err(ExtractErrorKind::UnhandledCase)
+                '1' ..= '9' | '-' => {
+                    lazy_static! {
+                        static ref FLOAT: Regex = Regex::new(r#"-?[0-9]+\.[0-9]+"#).unwrap();
+                        static ref INT: Regex = Regex::new(r#"-?[0-9]+"#).unwrap();
+                    }
+                    println!("found number");
+                    if FLOAT.is_match_at(self.raw, *index) {
+                        let init_pos = *index;
+                        println!("found float at {}", init_pos);
+                        let mut locations = FLOAT.capture_locations();
+                        match FLOAT.captures_read_at(&mut locations, self.raw, init_pos) {
+                            Some(_) => {
+                                println!("float locations: {:?}, {:?}", locations, locations.get(1));
+                                match locations.get(0) {
+                                    Some((start, end)) => {
+                                        println!("Start and end of float: {} - {}", start, end);
+                                        let cur_col = self.col;
+                                        let substr = self.raw.get(start..end).unwrap();
+                                        println!("Float as string: {}", substr);
+                                        match substr.parse::<f64>() {
+                                            Ok(f) => {
+                                                self.advance_to(end);
+                                                Ok(Token::Float(init_pos, self.line, cur_col, f))
+                                            },
+                                            Err(_) => Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col }),
+                                        }
+                                    },
+                                    None => Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col }),
+                                }
+                            },
+                            None => Err(ExtractErrorKind::UnexpectedCharacter { line: self.line, col: self.col })
+                        }
+                    } else if INT.is_match_at(self.raw, *index) {
+                        let init_pos = *index;
+                        println!("found int at {}", init_pos);
+                        let mut locations = INT.capture_locations();
+                        match INT.captures_read_at(&mut locations, self.raw, init_pos) {
+                            Some(_) => {
+                                println!("found int at {}", init_pos);
+                                match locations.get(0) {
+                                    Some((start, end)) => {
+                                        println!("Start and end of int: {} - {}", start, end);
+                                        let substr = self.raw.get(start..end).unwrap();
+                                        println!("Integer as string: {}", substr);
+                                        match substr.parse::<i64>() {
+                                            Ok(i) => {
+                                                let tok = Token::Int(self.position, self.line, self.col, i);
+                                                self.advance_to(end);
+                                                Ok(tok)
+                                            },
+                                            Err(_) => Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col })
+                                        }
+                                    },
+                                    None => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
+                                }
+                            },
+                            None => Err(ExtractErrorKind::UnexpectedCharacter { line: self.line, col: self.col }),
+                        }
+                    } else {
+                        Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col })
+                    }
                 },
                 '.' => {
                     lazy_static! {
@@ -421,6 +484,7 @@ mod tests {
     fn lex_spread() {
         println!("Testing spread");
         let one = tokenize("...");
+        println!("Debug float: {:?}", one);
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
             Token::Spread(0, 1, 1)
@@ -435,6 +499,11 @@ mod tests {
         assert_eq!(one.unwrap(), vec![
             Token::Int(0, 1, 1, 123456i64)
         ]);
+        let one = tokenize("-9876");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+            Token::Int(0, 1, 1, -9876i64)
+        ]);
     }
 
     #[test]
@@ -443,7 +512,12 @@ mod tests {
         let one = tokenize("1.23456789");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Float(0, 1, 1, 1.234556789f64)
+            Token::Float(0, 1, 1, 1.23456789f64)
+        ]);
+        let one = tokenize("-0.987654321");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+            Token::Float(0, 1, 1, -0.987654321f64)
         ]);
     }
 

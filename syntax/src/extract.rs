@@ -6,6 +6,7 @@ pub enum ExtractErrorKind {
     UnknownCharacter { line: usize, col: usize },
     UnhandledCase,
     UnexpectedCharacter { line: usize, col: usize },
+    UnableToConvert { line: usize, col: usize },
     EOF { line: usize, col: usize }
     // Custom(&'static str)
 }
