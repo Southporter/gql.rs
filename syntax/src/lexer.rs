@@ -1,14 +1,26 @@
 use crate::token::{Token, WhitespaceType};
-use crate::extract::ExtractErrorKind;
 use std::str::CharIndices;
 use std::iter::Peekable;
 use std::iter::Iterator;
 use regex::Regex;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum LexErrorKind {
+    UnmatchQuote { line: usize, col: usize },
+    UnknownCharacter { line: usize, col: usize },
+    UnhandledCase,
+    UnexpectedCharacter { line: usize, col: usize },
+    UnableToConvert { line: usize, col: usize },
+    EOF { line: usize, col: usize }
+    // Custom(&'static str)
+}
+
 #[derive(Debug)]
 pub struct Lexer<'a> {
     raw: &'a str,
     input: Peekable<CharIndices<'a>>,
+    initialized: bool,
+    ended: bool,
     pub position: usize,
     pub line: usize,
     pub col: usize,
@@ -19,6 +31,8 @@ impl<'a> Lexer<'a> {
         Lexer {
             raw: input,
             input: input.char_indices().peekable(),
+            initialized: false,
+            ended: false,
             position: 0,
             line: 1,
             col: 1,
@@ -42,6 +56,7 @@ impl<'a> Lexer<'a> {
         self.col = pos;
         self.input.position(|(i, _)| i == pos - 1);
     }
+    // TODO Move the body of the match arms into methods here
 }
 
 use std::fmt;
@@ -53,10 +68,14 @@ impl<'a> fmt::Display for Lexer<'a> {
 
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token<'a>, ExtractErrorKind>;
+    type Item = Result<Token<'a>, LexErrorKind>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((index, next)) = self.input.peek() {
+        if !self.initialized {
+            println!("Uninizialized");
+            self.initialized = true;
+            Some(Ok(Token::Start))
+        } else if let Some((index, next)) = self.input.peek() {
             println!("Next: {}, index: {}", next, index);
             let tok = match next {
                 '!' => {
@@ -158,10 +177,10 @@ impl<'a> Iterator for Lexer<'a> {
                                         }
                                         Ok(Token::BlockStr(init_pos, self.line, self.col, self.raw.get(start_off..end_off).unwrap()))
                                     },
-                                    None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                                    None => Err(LexErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                                 }
                             },
-                            None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                            None => Err(LexErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                         }
                     } else {
                         let init_pos = *index;
@@ -181,13 +200,14 @@ impl<'a> Iterator for Lexer<'a> {
                                         }
                                         Ok(Token::Str(init_pos, self.line, cur_col, self.raw.get(start_off..end_off).unwrap()))
                                     },
-                                    None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                                    None => Err(LexErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                                 }
                             },
-                            None => Err(ExtractErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
+                            None => Err(LexErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                         }
                     }
                 }
+                // TODO Make this multilingual
                 'a' ..= 'z' | 'A' ..= 'Z' => {
                     let init_pos = *index;
                     let mut end_pos = 0;
@@ -205,6 +225,7 @@ impl<'a> Iterator for Lexer<'a> {
                     end_pos += init_pos;
                     Ok(Token::Name(init_pos, self.line, init_col, self.raw.get(init_pos..end_pos).unwrap()))
                 },
+                // TODO Make this handle scientific notation
                 '1' ..= '9' | '-' => {
                     lazy_static! {
                         static ref FLOAT: Regex = Regex::new(r#"-?[0-9]+\.[0-9]+"#).unwrap();
@@ -229,13 +250,13 @@ impl<'a> Iterator for Lexer<'a> {
                                                 self.advance_to(end);
                                                 Ok(Token::Float(init_pos, self.line, cur_col, f))
                                             },
-                                            Err(_) => Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col }),
+                                            Err(_) => Err(LexErrorKind::UnableToConvert { line: self.line, col: self.col }),
                                         }
                                     },
-                                    None => Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col }),
+                                    None => Err(LexErrorKind::UnableToConvert { line: self.line, col: self.col }),
                                 }
                             },
-                            None => Err(ExtractErrorKind::UnexpectedCharacter { line: self.line, col: self.col })
+                            None => Err(LexErrorKind::UnexpectedCharacter { line: self.line, col: self.col })
                         }
                     } else if INT.is_match_at(self.raw, *index) {
                         let init_pos = *index;
@@ -255,16 +276,16 @@ impl<'a> Iterator for Lexer<'a> {
                                                 self.advance_to(end);
                                                 Ok(tok)
                                             },
-                                            Err(_) => Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col })
+                                            Err(_) => Err(LexErrorKind::UnableToConvert { line: self.line, col: self.col })
                                         }
                                     },
-                                    None => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
+                                    None => Err(LexErrorKind::UnknownCharacter { line: self.line, col: self.col }),
                                 }
                             },
-                            None => Err(ExtractErrorKind::UnexpectedCharacter { line: self.line, col: self.col }),
+                            None => Err(LexErrorKind::UnexpectedCharacter { line: self.line, col: self.col }),
                         }
                     } else {
-                        Err(ExtractErrorKind::UnableToConvert { line: self.line, col: self.col })
+                        Err(LexErrorKind::UnableToConvert { line: self.line, col: self.col })
                     }
                 },
                 '.' => {
@@ -280,14 +301,20 @@ impl<'a> Iterator for Lexer<'a> {
                         println!("next: {:?}", self.input.peek());
                         Ok(Token::Spread(cur_pos, self.line, cur_col))
                     } else {
-                        Err(ExtractErrorKind::UnexpectedCharacter { line: self.line, col: self.col })
+                        Err(LexErrorKind::UnexpectedCharacter { line: self.line, col: self.col })
                     }
                 }
-                _ => Err(ExtractErrorKind::UnknownCharacter { line: self.line, col: self.col }),
+                _ => Err(LexErrorKind::UnknownCharacter { line: self.line, col: self.col }),
             };
             Some(tok)
         } else {
-            None
+            println!("Found a None in the string: {}", self.ended);
+            if !self.ended {
+                self.ended = true;
+                Some(Ok(Token::End))
+            } else {
+                None
+            }
         }
     }
 }
@@ -304,9 +331,9 @@ impl<'a> Iterator for Lexer<'a> {
 /// assert!(tokens.is_ok());
 /// println!("Tokens: {:?}", tokens);
 /// ````
-pub fn tokenize<'a>(input: &'a str) -> Result<Vec<Token<'a>>, ExtractErrorKind> {
+pub fn tokenize<'a>(input: &'a str) -> Result<Vec<Token<'a>>, LexErrorKind> {
     let state = Lexer::new(input);
-    let results: Result<Vec<Token>, ExtractErrorKind> = state.collect();
+    let results: Result<Vec<Token>, LexErrorKind> = state.collect();
     results
 }
 
@@ -320,7 +347,10 @@ mod tests {
     fn lex_empty() {
         let empty = tokenize("");
         assert!(empty.is_ok());
-        assert!(empty.unwrap().is_empty());
+        assert_eq!(empty.unwrap(), vec![
+            Token::Start,
+            Token::End,
+        ]);
     }
 
     #[test]
@@ -329,7 +359,9 @@ mod tests {
         let one = tokenize("!");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Bang(0, 1, 1)
+            Token::Start,
+            Token::Bang(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -339,7 +371,9 @@ mod tests {
         let one = tokenize("$");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Dollar(0, 1, 1)
+            Token::Start,
+            Token::Dollar(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -349,11 +383,9 @@ mod tests {
         let one = tokenize("&");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::Amp(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::Amp(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -363,11 +395,9 @@ mod tests {
         let one = tokenize("@");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::At(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::At(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -377,11 +407,9 @@ mod tests {
         let one = tokenize("|");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::Pipe(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::Pipe(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -391,11 +419,9 @@ mod tests {
         let one = tokenize(":");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::Colon(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::Colon(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -405,11 +431,9 @@ mod tests {
         let one = tokenize("{");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::OpenBrace(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::OpenBrace(0, 1, 1),
+            Token::End,
         ]);
     }
     #[test]
@@ -418,11 +442,9 @@ mod tests {
         let one = tokenize("}");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::CloseBrace(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::CloseBrace(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -432,11 +454,9 @@ mod tests {
         let one = tokenize("(");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::OpenParen(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::OpenParen(0, 1, 1),
+            Token::End,
         ]);
     }
     #[test]
@@ -445,11 +465,9 @@ mod tests {
         let one = tokenize(")");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::CloseParen(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::CloseParen(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -459,11 +477,9 @@ mod tests {
         let one = tokenize("[");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::OpenSquare(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::OpenSquare(0, 1, 1),
+            Token::End,
         ]);
     }
     #[test]
@@ -472,11 +488,9 @@ mod tests {
         let one = tokenize("]");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-                   Token::CloseSquare(
-                       0,
-                       1,
-                       1,
-                   )
+            Token::Start,
+            Token::CloseSquare(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -487,7 +501,9 @@ mod tests {
         println!("Debug float: {:?}", one);
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Spread(0, 1, 1)
+            Token::Start,
+            Token::Spread(0, 1, 1),
+            Token::End,
         ]);
     }
 
@@ -497,12 +513,16 @@ mod tests {
         let one = tokenize("123456");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Int(0, 1, 1, 123456i64)
+            Token::Start,
+            Token::Int(0, 1, 1, 123456i64),
+            Token::End,
         ]);
         let one = tokenize("-9876");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Int(0, 1, 1, -9876i64)
+            Token::Start,
+            Token::Int(0, 1, 1, -9876i64),
+            Token::End,
         ]);
     }
 
@@ -512,12 +532,16 @@ mod tests {
         let one = tokenize("1.23456789");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Float(0, 1, 1, 1.23456789f64)
+            Token::Start,
+            Token::Float(0, 1, 1, 1.23456789f64),
+            Token::End,
         ]);
         let one = tokenize("-0.987654321");
         assert!(one.is_ok());
         assert_eq!(one.unwrap(), vec![
-            Token::Float(0, 1, 1, -0.987654321f64)
+            Token::Start,
+            Token::Float(0, 1, 1, -0.987654321f64),
+            Token::End,
         ]);
     }
 
@@ -527,12 +551,9 @@ mod tests {
         let text = tokenize(r#""text""#);
         assert!(text.is_ok());
         assert_eq!(text.unwrap(), vec![
-                   Token::Str(
-                       0,
-                       1,
-                       1,
-                       "text"
-                   )
+            Token::Start,
+            Token::Str(0, 1, 1, "text"),
+            Token::End,
         ]);
     }
 
@@ -544,12 +565,9 @@ mod tests {
 text""""#);
         assert!(text.is_ok());
         assert_eq!(text.unwrap(), vec![
-                   Token::BlockStr(
-                       0,
-                       1,
-                       1,
-                       "test\n\ntext"
-                   )
+            Token::Start,
+            Token::BlockStr(0, 1, 1, "test\n\ntext"),
+            Token::End,
         ]);
     }
 
@@ -559,12 +577,9 @@ text""""#);
         let text = tokenize("name");
         assert!(text.is_ok());
         assert_eq!(text.unwrap(), vec![
-                   Token::Name(
-                       0,
-                       1,
-                       1,
-                       "name"
-                   )
+            Token::Start,
+            Token::Name(0, 1, 1, "name"),
+            Token::End,
         ]);
     }
 
@@ -581,6 +596,7 @@ text""""#);
 }"#);
         assert!(query.is_ok());
         assert_eq!(query.unwrap(), vec![
+            Token::Start,
             Token::Name(0, 1, 1, "query"),
             Token::Whitespace(5, 1, 6, WhitespaceType::Space),
             Token::OpenBrace(6, 1, 7),
@@ -624,6 +640,7 @@ text""""#);
             Token::CloseBrace(63, 7, 3),
             Token::Whitespace(64, 7, 4, WhitespaceType::Newline),
             Token::CloseBrace(65, 8, 1),
+            Token::End,
         ])
     }
 
@@ -636,6 +653,7 @@ text""""#);
 "#);
         assert!(t.is_ok());
         assert_eq!(t.unwrap(), vec![
+            Token::Start,
             Token::Name(0, 1, 1, "type"),
             Token::Whitespace(4, 1, 5, WhitespaceType::Space),
             Token::Name(5, 1, 6, "Query"),
@@ -671,6 +689,7 @@ text""""#);
             Token::Whitespace(72, 3, 24, WhitespaceType::Newline),
             Token::CloseBrace(73, 4, 1),
             Token::Whitespace(74, 4, 2, WhitespaceType::Newline),
+            Token::End,
         ])
     }
 
@@ -686,6 +705,7 @@ text""""#);
 }"#);
         assert!(fragment.is_ok());
         assert_eq!(fragment.unwrap(), vec![
+            Token::Start,
             Token::Name(0, 1, 1, "query"),
             Token::Whitespace(5, 1, 6, WhitespaceType::Space),
             Token::OpenBrace(6, 1, 7),
@@ -733,6 +753,7 @@ text""""#);
             Token::CloseBrace(66, 7, 3),
             Token::Whitespace(67, 7, 4, WhitespaceType::Newline),
             Token::CloseBrace(68, 8, 1),
+            Token::End,
         ]);
     }
 
@@ -740,19 +761,19 @@ text""""#);
     fn handles_unmatched_quote() {
         let err = tokenize("\"test");
         assert!(err.is_err());
-        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+        assert_eq!(err.unwrap_err(), LexErrorKind::UnmatchQuote { line: 1, col: 2 });
         let err = tokenize("\"\"\"test\n\n\"\"");
         assert!(err.is_err());
-        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+        assert_eq!(err.unwrap_err(), LexErrorKind::UnmatchQuote { line: 1, col: 2 });
         let err = tokenize("\"\"\"test\ntest\ntest\"");
         assert!(err.is_err());
-        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnmatchQuote { line: 1, col: 2 });
+        assert_eq!(err.unwrap_err(), LexErrorKind::UnmatchQuote { line: 1, col: 2 });
     }
 
     #[test]
     fn handles_unknown_character() {
         let err = tokenize("%");
         assert!(err.is_err());
-        assert_eq!(err.unwrap_err(), ExtractErrorKind::UnknownCharacter { line: 1, col: 1 });
+        assert_eq!(err.unwrap_err(), LexErrorKind::UnknownCharacter { line: 1, col: 1 });
     }
 }

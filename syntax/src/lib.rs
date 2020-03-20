@@ -1,29 +1,34 @@
 #[macro_use] extern crate lazy_static;
 pub mod token;
 pub mod lexer;
-mod extract;
+pub mod ast;
+mod nodes;
 
-pub struct AST {
-    _value: String,
-}
+use ast::{AST, ParseError};
+// use lexer::LexErrorKind;
+// use token::Token;
 
-impl AST {
-    pub fn new(value: String) -> AST {
-        AST {
-            _value: value,
-        }
-    }
-}
-
-pub fn parse(query: &str) -> AST {
-    let _tokens = lexer::tokenize(query);
-    AST::new(String::from("Unimplemented"))
+pub fn parse<'a>(query: &'a str) -> Result<AST, ParseError>
+{
+    let ast = AST::new(query);
+    ast
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn it_handles_lexing_error() {
+        println!("parsing error");
+        let res = parse("");
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), ParseError::DocumentEmpty);
+    }
+
+    #[test]
+    fn parses_object() {
+        println!("parsing an object");
+
     }
 }
