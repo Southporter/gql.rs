@@ -1,6 +1,7 @@
 # gql.rs
 Purely GraphQL database written in Rust
 
+![Rust](https://github.com/ssedrick/gql.rs/workflows/Rust/badge.svg)
 
 ### Structure
 ##### Lexer
