@@ -1,8 +1,8 @@
 use crate::lexer::{Lexer, LexErrorKind};
-use crate::token::Token;
 use crate::nodes::Document;
 use std::iter::Iterator;
 
+#[derive(PartialEq)]
 pub struct AST<'i>
 {
     input: &'i str,
@@ -23,19 +23,19 @@ impl<'i> Debug for AST<'i> {
 
 impl<'i> AST<'i> {
     pub fn new(input: &'i str) -> Result<AST<'i>, ParseError> {
-        let lexer = Lexer::new(input).filter(|x| match x {
-            Ok(z) => match z {
-                Token::Whitespace(_, _, _, _) => false,
-                _ => true,
-            },
-            Err(_) => true,
-        });
+        let mut lexer = Lexer::new(input).peekable();
 
-        let document = Document::new(Box::new(lexer))?;
+        let document = Document::new(&mut lexer)?;
         Ok(AST {
             input,
             document,
         })
+    }
+    pub fn from(input: &'i str, document: Document<'i>) -> AST<'i> {
+        AST {
+            input,
+            document,
+        }
     }
 }
 
@@ -43,14 +43,15 @@ impl<'i> AST<'i> {
 pub enum ParseError {
     BadValue,
     DocumentEmpty,
+    EOF,
     LexError(LexErrorKind),
-    UnexpectedToken { expected: &'static str, received: String }
+    UnexpectedToken { expected: String, received: String }
 }
 
-struct Location<'a> {
-    start: Token<'a>,
-    end: Token<'a>,
-}
+// struct Location<'a> {
+//     start: Token<'a>,
+//     end: Token<'a>,
+// }
 
 #[cfg(test)]
 mod tests {

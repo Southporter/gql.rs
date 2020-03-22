@@ -1,10 +1,11 @@
-use crate::lexer::LexErrorKind;
+use crate::lexer::Lexer;
 use crate::token::Token;
 use crate::ast::ParseError;
+use std::iter::Peekable;
 
-#[derive(Debug)]
-struct NameNode<'a> {
-    value: &'a str
+#[derive(Debug, PartialEq)]
+pub struct NameNode<'a> {
+    pub value: &'a str
 }
 impl<'a> NameNode<'a> {
     pub fn new(token: Token) -> Result<NameNode, ParseError> {
@@ -14,16 +15,16 @@ impl<'a> NameNode<'a> {
                     value
                 }
             ),
-            _ => Err(ParseError::UnexpectedToken { expected: "Token<Name>", received: token.to_string().to_owned() })
+            _ => Err(ParseError::UnexpectedToken {
+                expected: String::from("Token<Name>"),
+                received: token.to_string().to_owned() })
         }
     }
 }
 
-const STRING: &'static str = "StringValue";
-#[derive(Debug)]
-struct StringValueNode<'a> {
-    kind: &'static str,
-    value: &'a str
+#[derive(Debug, PartialEq)]
+pub struct StringValueNode<'a> {
+    pub value: &'a str
 }
 
 impl<'a> StringValueNode<'a> {
@@ -32,12 +33,11 @@ impl<'a> StringValueNode<'a> {
             Token::Str(_, _, _, value) |
             Token::BlockStr(_, _, _, value) => Ok(
                 StringValueNode {
-                    kind: STRING,
                     value,
                 }
             ),
             _ => Err(ParseError::UnexpectedToken {
-                expected: "Token<Str> or Token<BlockStr>",
+                expected: String::from("Token<Str> or Token<BlockStr>"),
                 received: token.to_string().to_owned()
             })
         }
@@ -76,8 +76,8 @@ enum ValueNode<'a> {
 //
 
 const SCHEMA: &'static str = "SchemaDefinition";
-#[derive(Debug)]
-struct SchemaDefinitionNode<'a> {
+#[derive(Debug, PartialEq)]
+pub struct SchemaDefinitionNode<'a> {
     kind: &'static str,
     description: Option<StringValueNode<'a>>,
     // directives: Vec<DirectiveDefinitionNode>,
@@ -92,8 +92,8 @@ impl<'a> SchemaDefinitionNode<'a> {
     }
 }
 
-#[derive(Debug)]
-struct ScalarTypeDefinitionNode<'a> {
+#[derive(Debug, PartialEq)]
+pub struct ScalarTypeDefinitionNode<'a> {
     description: Option<StringValueNode<'a>>,
     name: NameNode<'a>,
     // directives: Vec<DirectiveDefinitionNode>
@@ -109,10 +109,10 @@ impl<'a> ScalarTypeDefinitionNode<'a> {
     }
 }
 
-#[derive(Debug)]
-struct ObjectTypeDefinitionNode<'a> {
-    description: Option<StringValueNode<'a>>,
-    name: NameNode<'a>,
+#[derive(Debug, PartialEq)]
+pub struct ObjectTypeDefinitionNode<'a> {
+    pub description: Option<StringValueNode<'a>>,
+    pub name: NameNode<'a>,
     // interfaces: Vec<NamedTypeNode>,
     // directives: Vec<DirectiveDefinitionNode>,
     // fields: Vec<FieldDefinitionNode<'a>>
@@ -130,8 +130,8 @@ impl<'a> ObjectTypeDefinitionNode<'a> {
 
 
 
-#[derive(Debug)]
-enum TypeDefinitionNode<'a> {
+#[derive(Debug, PartialEq)]
+pub enum TypeDefinitionNode<'a> {
     Scalar(ScalarTypeDefinitionNode<'a>),
     Object(ObjectTypeDefinitionNode<'a>),
     // Interface(InterfaceTypeDefinitionNode)
@@ -140,35 +140,91 @@ enum TypeDefinitionNode<'a> {
     // Input(InputObjectTypeDefinitionNode)
 }
 
-#[derive(Debug)]
-enum TypeSystemDefinitionNode<'a> {
+#[derive(Debug, PartialEq)]
+pub enum TypeSystemDefinitionNode<'a> {
     Schema(SchemaDefinitionNode<'a>),
     Type(TypeDefinitionNode<'a>),
     // Directive(DirectiveDefinitionNode),
 }
 
-#[derive(Debug)]
-enum DefinitionNode<'a> {
+#[derive(Debug, PartialEq)]
+pub enum DefinitionNode<'a> {
     // Executable(ExecutableDefinitionNode),
     TypeSystem(TypeSystemDefinitionNode<'a>),
     // Extension(TypeSystemExtensionNode),
 }
 
-fn parse_definitions(_iter: Lex) -> Result<Vec<DefinitionNode>, ParseError> {
+fn parse_definition<'a>(_iter: &mut Lex<'a>) -> Result<DefinitionNode<'a>, ParseError> {
     Err(ParseError::DocumentEmpty)
 }
 
-type Lex<'i> = Box<dyn Iterator<Item = Result<Token<'i>, LexErrorKind>> + 'i>;
+fn parse_definitions<'a>(iter: &mut Lex<'a>) -> Result<Vec<DefinitionNode<'a>>, ParseError> {
+    many(iter, Token::Start, parse_definition, Token::End)
+}
 
-#[derive(Debug)]
+type Lex<'i> = Peekable<Lexer<'i>>;
+
+#[derive(Debug, PartialEq)]
 pub struct Document<'a> {
-    definitions: Vec<DefinitionNode<'a>>,
+    pub definitions: Vec<DefinitionNode<'a>>,
 }
 impl<'a> Document<'a> {
-    pub fn new(iter: Lex<'a>) -> Result<Document<'a>, ParseError> {
+    pub fn new(iter: &mut Lex<'a>) -> Result<Document<'a>, ParseError> {
         let definitions = parse_definitions(iter)?;
         Ok(Document {
             definitions
         })
     }
+}
+
+fn expect_optional_token<'a>(iter: &mut Lex<'a>, tok: &Token<'a>) -> Option<Token<'a>> {
+    if let Some(next) = iter.peek() {
+        match next {
+            Ok(actual) => {
+                if *actual == *tok {
+                    Some(iter.next().unwrap().unwrap())
+                } else {
+                    None
+                }
+            },
+            Err(_) => None
+        }
+    } else {
+        None
+    }
+}
+
+fn expect_token<'a>(iter: &mut Lex<'a>, tok: Token) -> Result<(), ParseError> {
+    if let Some(next) = iter.next() {
+        match next {
+            Ok(actual) => {
+                if actual != tok {
+                    Err(ParseError::UnexpectedToken {
+                        expected: tok.to_string(),
+                        received: actual.to_string().to_owned(),
+                    })
+                } else {
+                    Ok(())
+                }
+            },
+            Err(e) => Err(ParseError::LexError(e)),
+        }
+    } else {
+        Err(ParseError::EOF)
+    }
+}
+
+fn many<'a, T, P>(iter: &mut Lex<'a>, start: Token<'a>, parser: P, end: Token<'a>) -> Result<Vec<T>, ParseError>
+where P: Fn(&mut Lex<'a>) -> Result<T, ParseError>
+{
+    expect_token(iter, start)?;
+    let mut nodes: Vec<T> = Vec::new();
+    loop {
+        let node = parser(iter)?;
+        if let Some(_) = expect_optional_token(iter, &end) {
+            nodes.push(node);
+            break;
+        }
+    }
+    Ok(nodes)
 }
