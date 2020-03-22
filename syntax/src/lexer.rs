@@ -1,4 +1,4 @@
-use crate::token::{Token, WhitespaceType};
+use crate::token::Token;
 use std::str::CharIndices;
 use std::iter::Peekable;
 use std::iter::Iterator;
@@ -25,6 +25,8 @@ pub struct Lexer<'a> {
     pub line: usize,
     pub col: usize,
 }
+
+type LexerItem<'a> = Result<Token<'a>, LexErrorKind>;
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &str) -> Lexer {
@@ -57,27 +59,12 @@ impl<'a> Lexer<'a> {
         self.input.position(|(i, _)| i == pos - 1);
     }
     // TODO Move the body of the match arms into methods here
-}
+    //
 
-use std::fmt;
-impl<'a> fmt::Display for Lexer<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Lexer<position: {}, line: {}, col: {}>", self.position, self.line, self.col)
-    }
-}
-
-
-impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token<'a>, LexErrorKind>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if !self.initialized {
-            println!("Uninizialized");
-            self.initialized = true;
-            Some(Ok(Token::Start))
-        } else if let Some((index, next)) = self.input.peek() {
+    fn get_next_token(&mut self) -> LexerItem<'a> {
+        if let Some((index, next)) = self.input.peek() {
             println!("Next: {}, index: {}", next, index);
-            let tok = match next {
+            match next {
                 '!' => {
                     let tok = Ok(Token::Bang(self.position, self.line, self.col));
                     self.advance();
@@ -139,24 +126,19 @@ impl<'a> Iterator for Lexer<'a> {
                     tok
                 },
                 ' ' => {
-                    let tok = Ok(Token::Whitespace(self.position, self.line, self.col, WhitespaceType::Space));
                     self.advance();
-                    tok
+                    self.get_next_token()
                 },
                 '\t' => {
-                    let tok = Ok(Token::Whitespace(self.position, self.line, self.col, WhitespaceType::Tab));
                     self.advance();
-                    tok
+                    self.get_next_token()
                 },
                 '\n' => {
-                    let cur_pos  = self.position;
-                    let cur_line = self.line;
-                    let cur_col  = self.col;
                     self.line += 1;
                     self.col = 1;
                     self.position += 1;
                     self.input.next();
-                    Ok(Token::Whitespace(cur_pos, cur_line, cur_col, WhitespaceType::Newline))
+                    self.get_next_token()
                 },
                 '"' => {
                     lazy_static! {
@@ -305,7 +287,33 @@ impl<'a> Iterator for Lexer<'a> {
                     }
                 }
                 _ => Err(LexErrorKind::UnknownCharacter { line: self.line, col: self.col }),
-            };
+            }
+        } else {
+            // This occurs when we have hit an extra newline at the end of the file
+            self.ended = true;
+            Ok(Token::End)
+        }
+    }
+}
+
+use std::fmt;
+impl<'a> fmt::Display for Lexer<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Lexer<position: {}, line: {}, col: {}>", self.position, self.line, self.col)
+    }
+}
+
+
+impl<'a> Iterator for Lexer<'a> {
+    type Item = LexerItem<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.initialized {
+            println!("Uninizialized");
+            self.initialized = true;
+            Some(Ok(Token::Start))
+        } else if let Some(_) = self.input.peek() {
+            let tok = self.get_next_token();
             Some(tok)
         } else {
             println!("Found a None in the string: {}", self.ended);
@@ -598,47 +606,20 @@ text""""#);
         assert_eq!(query.unwrap(), vec![
             Token::Start,
             Token::Name(0, 1, 1, "query"),
-            Token::Whitespace(5, 1, 6, WhitespaceType::Space),
             Token::OpenBrace(6, 1, 7),
-            Token::Whitespace(7, 1, 8, WhitespaceType::Newline),
-            Token::Whitespace(8, 2, 1, WhitespaceType::Space),
-            Token::Whitespace(9, 2, 2, WhitespaceType::Space),
             Token::Name(10, 2, 3, "hero"),
-            Token::Whitespace(14, 2, 7, WhitespaceType::Space),
             Token::OpenBrace(15, 2, 8),
-            Token::Whitespace(16, 2, 9, WhitespaceType::Newline),
-            Token::Whitespace(17, 3, 1, WhitespaceType::Space),
-            Token::Whitespace(18, 3, 2, WhitespaceType::Space),
-            Token::Whitespace(19, 3, 3, WhitespaceType::Space),
-            Token::Whitespace(20, 3, 4, WhitespaceType::Space),
             Token::Name(21, 3, 5, "name"),
-            Token::Whitespace(25, 3, 9, WhitespaceType::Newline),
-            Token::Whitespace(26, 4, 1, WhitespaceType::Space),
-            Token::Whitespace(27, 4, 2, WhitespaceType::Space),
             Token::CloseBrace(28, 4, 3),
-            Token::Whitespace(29, 4, 4, WhitespaceType::Newline),
-            Token::Whitespace(30, 5, 1, WhitespaceType::Space),
-            Token::Whitespace(31, 5, 2, WhitespaceType::Space),
             Token::Name(32, 5, 3, "droid"),
             Token::OpenParen(37, 5, 8),
             Token::Name(38, 5, 9, "id"),
             Token::Colon(40, 5, 11),
-            Token::Whitespace(41, 5, 12, WhitespaceType::Space),
             Token::Str(42, 5, 13, "2000"),
             Token::CloseParen(48, 5, 19),
-            Token::Whitespace(49, 5, 20, WhitespaceType::Space),
             Token::OpenBrace(50, 5, 21),
-            Token::Whitespace(51, 5, 22, WhitespaceType::Newline),
-            Token::Whitespace(52, 6, 1, WhitespaceType::Space),
-            Token::Whitespace(53, 6, 2, WhitespaceType::Space),
-            Token::Whitespace(54, 6, 3, WhitespaceType::Space),
-            Token::Whitespace(55, 6, 4, WhitespaceType::Space),
             Token::Name(56, 6, 5, "name"),
-            Token::Whitespace(60, 6, 9, WhitespaceType::Newline),
-            Token::Whitespace(61, 7, 1, WhitespaceType::Space),
-            Token::Whitespace(62, 7, 2, WhitespaceType::Space),
             Token::CloseBrace(63, 7, 3),
-            Token::Whitespace(64, 7, 4, WhitespaceType::Newline),
             Token::CloseBrace(65, 8, 1),
             Token::End,
         ])
@@ -651,44 +632,31 @@ text""""#);
   droid(id: ID!): Droid
 }
 "#);
+        println!("T in lex_type: {:?}", t);
         assert!(t.is_ok());
         assert_eq!(t.unwrap(), vec![
             Token::Start,
             Token::Name(0, 1, 1, "type"),
-            Token::Whitespace(4, 1, 5, WhitespaceType::Space),
             Token::Name(5, 1, 6, "Query"),
-            Token::Whitespace(10, 1, 11, WhitespaceType::Space),
             Token::OpenBrace(11, 1, 12),
-            Token::Whitespace(12, 1, 13, WhitespaceType::Newline),
-            Token::Whitespace(13, 2, 1, WhitespaceType::Space),
-            Token::Whitespace(14, 2, 2, WhitespaceType::Space),
             Token::Name(15, 2, 3, "hero"),
             Token::OpenParen(19, 2, 7),
             Token::Name(20, 2, 8, "episode"),
             Token::Colon(27, 2, 15),
-            Token::Whitespace(28, 2, 16, WhitespaceType::Space),
             Token::Name(29, 2, 17, "Episode"),
             Token::CloseParen(36, 2, 24),
             Token::Colon(37, 2, 25),
-            Token::Whitespace(38, 2, 26, WhitespaceType::Space),
             Token::Name(39, 2, 27, "Character"),
-            Token::Whitespace(48, 2, 36, WhitespaceType::Newline),
-            Token::Whitespace(49, 3, 1, WhitespaceType::Space),
-            Token::Whitespace(50, 3, 2, WhitespaceType::Space),
             Token::Name(51, 3, 3, "droid"),
             Token::OpenParen(56, 3, 8),
             Token::Name(57, 3, 9, "id"),
             Token::Colon(59, 3, 11),
-            Token::Whitespace(60, 3, 12, WhitespaceType::Space),
             Token::Name(61, 3, 13, "ID"),
             Token::Bang(63, 3, 15),
             Token::CloseParen(64, 3, 16),
             Token::Colon(65, 3, 17),
-            Token::Whitespace(66, 3, 18, WhitespaceType::Space),
             Token::Name(67, 3, 19, "Droid"),
-            Token::Whitespace(72, 3, 24, WhitespaceType::Newline),
             Token::CloseBrace(73, 4, 1),
-            Token::Whitespace(74, 4, 2, WhitespaceType::Newline),
             Token::End,
         ])
     }
@@ -707,51 +675,17 @@ text""""#);
         assert_eq!(fragment.unwrap(), vec![
             Token::Start,
             Token::Name(0, 1, 1, "query"),
-            Token::Whitespace(5, 1, 6, WhitespaceType::Space),
             Token::OpenBrace(6, 1, 7),
-            Token::Whitespace(7, 1, 8, WhitespaceType::Newline),
-            Token::Whitespace(8, 2, 1, WhitespaceType::Space),
-            Token::Whitespace(9, 2, 2, WhitespaceType::Space),
             Token::Name(10, 2, 3, "hero"),
-            Token::Whitespace(14, 2, 7, WhitespaceType::Space),
             Token::OpenBrace(15, 2, 8),
-            Token::Whitespace(16, 2, 9, WhitespaceType::Newline),
-            Token::Whitespace(17, 3, 1, WhitespaceType::Space),
-            Token::Whitespace(18, 3, 2, WhitespaceType::Space),
-            Token::Whitespace(19, 3, 3, WhitespaceType::Space),
-            Token::Whitespace(20, 3, 4, WhitespaceType::Space),
             Token::Name(21, 3, 5, "name"),
-            Token::Whitespace(25, 3, 9, WhitespaceType::Newline),
-            Token::Whitespace(26, 4, 1, WhitespaceType::Space),
-            Token::Whitespace(27, 4, 2, WhitespaceType::Space),
-            Token::Whitespace(28, 4, 3, WhitespaceType::Space),
-            Token::Whitespace(29, 4, 4, WhitespaceType::Space),
             Token::Spread(30, 4, 5),
-            Token::Whitespace(33, 4, 8, WhitespaceType::Space),
             Token::Name(34, 4, 9, "on"),
-            Token::Whitespace(36, 4, 11, WhitespaceType::Space),
             Token::Name(37, 4, 12, "Human"),
-            Token::Whitespace(42, 4, 17, WhitespaceType::Space),
             Token::OpenBrace(43, 4, 18),
-            Token::Whitespace(44, 4, 19, WhitespaceType::Newline),
-            Token::Whitespace(45, 5, 1, WhitespaceType::Space),
-            Token::Whitespace(46, 5, 2, WhitespaceType::Space),
-            Token::Whitespace(47, 5, 3, WhitespaceType::Space),
-            Token::Whitespace(48, 5, 4, WhitespaceType::Space),
-            Token::Whitespace(49, 5, 5, WhitespaceType::Space),
-            Token::Whitespace(50, 5, 6, WhitespaceType::Space),
             Token::Name(51, 5, 7, "height"),
-            Token::Whitespace(57, 5, 13, WhitespaceType::Newline),
-            Token::Whitespace(58, 6, 1, WhitespaceType::Space),
-            Token::Whitespace(59, 6, 2, WhitespaceType::Space),
-            Token::Whitespace(60, 6, 3, WhitespaceType::Space),
-            Token::Whitespace(61, 6, 4, WhitespaceType::Space),
             Token::CloseBrace(62, 6, 5),
-            Token::Whitespace(63, 6, 6, WhitespaceType::Newline),
-            Token::Whitespace(64, 7, 1, WhitespaceType::Space),
-            Token::Whitespace(65, 7, 2, WhitespaceType::Space),
             Token::CloseBrace(66, 7, 3),
-            Token::Whitespace(67, 7, 4, WhitespaceType::Newline),
             Token::CloseBrace(68, 8, 1),
             Token::End,
         ]);

@@ -1,10 +1,3 @@
-#[derive(Debug, PartialEq, Clone)]
-pub enum WhitespaceType {
-    Newline,
-    Space,
-    Tab,
-}
-
 // (position, line, col, value)
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token<'a> {
@@ -30,7 +23,6 @@ pub enum Token<'a> {
     Str(usize, usize, usize, &'a str),
     BlockStr(usize, usize, usize, &'a str),
     Comment(usize, usize, usize, &'a str),
-    Whitespace(usize, usize, usize, WhitespaceType),
 }
 
 impl<'a> Token<'a> {
