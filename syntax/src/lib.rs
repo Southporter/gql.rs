@@ -5,13 +5,15 @@ pub mod ast;
 mod nodes;
 
 use ast::{AST, ParseError};
+use nodes::{Document};
 // use lexer::LexErrorKind;
 // use token::Token;
 
-pub fn parse<'a>(query: &'a str) -> Result<AST, ParseError>
+pub fn parse<'a>(query: &'a str) -> Result<Box<Document<'a>>, ParseError>
 {
-    let ast = AST::new(query);
-    ast
+    let mut ast = AST::new(query)?;
+    let document = Box::new(ast.parse()?);
+    Ok(document)
 }
 
 #[cfg(test)]
@@ -37,8 +39,7 @@ mod tests {
 }"#;
         let res = parse(input);
         assert!(res.is_ok());
-        assert_eq!(res.unwrap(), AST::from(
-            input,
+        assert_eq!(res.unwrap(),
             Document {
                 definitions: vec![
                     DefinitionNode::TypeSystem(
@@ -55,6 +56,6 @@ mod tests {
                     )
                 ]
             }
-        ))
+        )
     }
 }

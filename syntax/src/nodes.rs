@@ -1,7 +1,5 @@
-use crate::lexer::Lexer;
 use crate::token::Token;
 use crate::ast::ParseError;
-use std::iter::Peekable;
 
 #[derive(Debug, PartialEq)]
 pub struct NameNode<'a> {
@@ -119,16 +117,13 @@ pub struct ObjectTypeDefinitionNode<'a> {
 }
 
 impl<'a> ObjectTypeDefinitionNode<'a> {
-    pub fn new(tok: Token) -> Result<ObjectTypeDefinitionNode, ParseError> {
-        let name = NameNode::new(tok)?;
+    pub fn new(tok: Token<'a>) -> Result<ObjectTypeDefinitionNode<'a>, ParseError> {
         Ok(ObjectTypeDefinitionNode {
             description: None,
-            name,
+            name: NameNode::new(tok)?
         })
     }
 }
-
-
 
 #[derive(Debug, PartialEq)]
 pub enum TypeDefinitionNode<'a> {
@@ -154,77 +149,14 @@ pub enum DefinitionNode<'a> {
     // Extension(TypeSystemExtensionNode),
 }
 
-fn parse_definition<'a>(_iter: &mut Lex<'a>) -> Result<DefinitionNode<'a>, ParseError> {
-    Err(ParseError::DocumentEmpty)
-}
-
-fn parse_definitions<'a>(iter: &mut Lex<'a>) -> Result<Vec<DefinitionNode<'a>>, ParseError> {
-    many(iter, Token::Start, parse_definition, Token::End)
-}
-
-type Lex<'i> = Peekable<Lexer<'i>>;
-
 #[derive(Debug, PartialEq)]
 pub struct Document<'a> {
     pub definitions: Vec<DefinitionNode<'a>>,
 }
 impl<'a> Document<'a> {
-    pub fn new(iter: &mut Lex<'a>) -> Result<Document<'a>, ParseError> {
-        let definitions = parse_definitions(iter)?;
-        Ok(Document {
+    pub fn new(definitions: Vec<DefinitionNode>) -> Document {
+        Document {
             definitions
-        })
-    }
-}
-
-fn expect_optional_token<'a>(iter: &mut Lex<'a>, tok: &Token<'a>) -> Option<Token<'a>> {
-    if let Some(next) = iter.peek() {
-        match next {
-            Ok(actual) => {
-                if *actual == *tok {
-                    Some(iter.next().unwrap().unwrap())
-                } else {
-                    None
-                }
-            },
-            Err(_) => None
-        }
-    } else {
-        None
-    }
-}
-
-fn expect_token<'a>(iter: &mut Lex<'a>, tok: Token) -> Result<(), ParseError> {
-    if let Some(next) = iter.next() {
-        match next {
-            Ok(actual) => {
-                if actual != tok {
-                    Err(ParseError::UnexpectedToken {
-                        expected: tok.to_string(),
-                        received: actual.to_string().to_owned(),
-                    })
-                } else {
-                    Ok(())
-                }
-            },
-            Err(e) => Err(ParseError::LexError(e)),
-        }
-    } else {
-        Err(ParseError::EOF)
-    }
-}
-
-fn many<'a, T, P>(iter: &mut Lex<'a>, start: Token<'a>, parser: P, end: Token<'a>) -> Result<Vec<T>, ParseError>
-where P: Fn(&mut Lex<'a>) -> Result<T, ParseError>
-{
-    expect_token(iter, start)?;
-    let mut nodes: Vec<T> = Vec::new();
-    loop {
-        let node = parser(iter)?;
-        if let Some(_) = expect_optional_token(iter, &end) {
-            nodes.push(node);
-            break;
         }
     }
-    Ok(nodes)
 }
