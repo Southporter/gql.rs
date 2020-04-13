@@ -9,10 +9,10 @@ use nodes::{Document};
 // use lexer::LexErrorKind;
 // use token::Token;
 
-pub fn parse<'a>(query: &'a str) -> Result<Box<Document<'a>>, ParseError>
+pub fn parse<'a>(query: &'a str) -> Result<Document, ParseError>
 {
     let mut ast = AST::new(query)?;
-    let document = Box::new(ast.parse()?);
+    let document = ast.parse()?;
     Ok(document)
 }
 
@@ -30,14 +30,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn parses_object() {
         println!("parsing an object");
         let input = r#"type Obj{
-  Var1: String
-  Var2: Number
 }"#;
         let res = parse(input);
+        println!("res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(),
             Document {
@@ -48,8 +46,9 @@ mod tests {
                                 ObjectTypeDefinitionNode {
                                     description: None,
                                     name: NameNode {
-                                        value: input.get(5..7).unwrap()
-                                    }
+                                        value: input.get(5..8).unwrap().to_owned()
+                                    },
+                                    // fields: vec![],
                                 }
                             )
                         )

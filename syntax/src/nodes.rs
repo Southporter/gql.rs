@@ -2,15 +2,15 @@ use crate::token::Token;
 use crate::ast::ParseError;
 
 #[derive(Debug, PartialEq)]
-pub struct NameNode<'a> {
-    pub value: &'a str
+pub struct NameNode {
+    pub value: String
 }
-impl<'a> NameNode<'a> {
+impl NameNode {
     pub fn new(token: Token) -> Result<NameNode, ParseError> {
         match token {
             Token::Name(_, _, _, value) => Ok(
                 NameNode {
-                    value
+                    value: value.to_owned(),
                 }
             ),
             _ => Err(ParseError::UnexpectedToken {
@@ -21,17 +21,17 @@ impl<'a> NameNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct StringValueNode<'a> {
-    pub value: &'a str
+pub struct StringValueNode {
+    pub value: String
 }
 
-impl<'a> StringValueNode<'a> {
+impl StringValueNode {
     pub fn new(token: Token) -> Result<StringValueNode, ParseError> {
         match token {
-            Token::Str(_, _, _, value) |
-            Token::BlockStr(_, _, _, value) => Ok(
+            Token::Str(_, _, _, val) |
+            Token::BlockStr(_, _, _, val) => Ok(
                 StringValueNode {
-                    value,
+                    value: val.to_owned(),
                 }
             ),
             _ => Err(ParseError::UnexpectedToken {
@@ -43,8 +43,8 @@ impl<'a> StringValueNode<'a> {
 }
 
 #[derive(Debug)]
-enum ValueNode<'a> {
-    String(StringValueNode<'a>),
+enum ValueNode {
+    String(StringValueNode),
 }
 
 // struct Location<'a> {
@@ -75,14 +75,14 @@ enum ValueNode<'a> {
 
 const SCHEMA: &'static str = "SchemaDefinition";
 #[derive(Debug, PartialEq)]
-pub struct SchemaDefinitionNode<'a> {
+pub struct SchemaDefinitionNode {
     kind: &'static str,
-    description: Option<StringValueNode<'a>>,
+    description: Option<StringValueNode>,
     // directives: Vec<DirectiveDefinitionNode>,
     // operations: Vec<OperationTypeDefinitionNode>,
 }
-impl<'a> SchemaDefinitionNode<'a> {
-    pub fn new() -> SchemaDefinitionNode<'a> {
+impl SchemaDefinitionNode {
+    pub fn new() -> SchemaDefinitionNode {
         SchemaDefinitionNode {
             kind: SCHEMA,
             description: None
@@ -91,13 +91,13 @@ impl<'a> SchemaDefinitionNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ScalarTypeDefinitionNode<'a> {
-    description: Option<StringValueNode<'a>>,
-    name: NameNode<'a>,
+pub struct ScalarTypeDefinitionNode {
+    description: Option<StringValueNode>,
+    name: NameNode,
     // directives: Vec<DirectiveDefinitionNode>
 }
 
-impl<'a> ScalarTypeDefinitionNode<'a> {
+impl ScalarTypeDefinitionNode {
     pub fn new(tok: Token) -> Result<ScalarTypeDefinitionNode, ParseError> {
         let name = NameNode::new(tok)?;
         Ok(ScalarTypeDefinitionNode {
@@ -108,27 +108,28 @@ impl<'a> ScalarTypeDefinitionNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ObjectTypeDefinitionNode<'a> {
-    pub description: Option<StringValueNode<'a>>,
-    pub name: NameNode<'a>,
+pub struct ObjectTypeDefinitionNode {
+    pub description: Option<StringValueNode>,
+    pub name: NameNode,
     // interfaces: Vec<NamedTypeNode>,
     // directives: Vec<DirectiveDefinitionNode>,
-    // fields: Vec<FieldDefinitionNode<'a>>
+    // fields: Vec<FieldDefinitionNode>
 }
 
-impl<'a> ObjectTypeDefinitionNode<'a> {
-    pub fn new(tok: Token<'a>) -> Result<ObjectTypeDefinitionNode<'a>, ParseError> {
+impl ObjectTypeDefinitionNode {
+    pub fn new(tok: Token) -> Result<ObjectTypeDefinitionNode, ParseError> {
         Ok(ObjectTypeDefinitionNode {
             description: None,
-            name: NameNode::new(tok)?
+            name: NameNode::new(tok)?,
+            // fields: vec![]
         })
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum TypeDefinitionNode<'a> {
-    Scalar(ScalarTypeDefinitionNode<'a>),
-    Object(ObjectTypeDefinitionNode<'a>),
+pub enum TypeDefinitionNode {
+    Scalar(ScalarTypeDefinitionNode),
+    Object(ObjectTypeDefinitionNode),
     // Interface(InterfaceTypeDefinitionNode)
     // Union(UnionTypeDefinitionNode)
     // Enum(EnumTypeDefinitionNode)
@@ -136,24 +137,24 @@ pub enum TypeDefinitionNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum TypeSystemDefinitionNode<'a> {
-    Schema(SchemaDefinitionNode<'a>),
-    Type(TypeDefinitionNode<'a>),
+pub enum TypeSystemDefinitionNode {
+    Schema(SchemaDefinitionNode),
+    Type(TypeDefinitionNode),
     // Directive(DirectiveDefinitionNode),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum DefinitionNode<'a> {
+pub enum DefinitionNode {
     // Executable(ExecutableDefinitionNode),
-    TypeSystem(TypeSystemDefinitionNode<'a>),
+    TypeSystem(TypeSystemDefinitionNode),
     // Extension(TypeSystemExtensionNode),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Document<'a> {
-    pub definitions: Vec<DefinitionNode<'a>>,
+pub struct Document {
+    pub definitions: Vec<DefinitionNode>,
 }
-impl<'a> Document<'a> {
+impl Document {
     pub fn new(definitions: Vec<DefinitionNode>) -> Document {
         Document {
             definitions

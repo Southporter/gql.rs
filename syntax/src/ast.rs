@@ -30,27 +30,29 @@ impl<'i> AST<'i> {
         })
     }
 
-    pub fn parse(&'i mut self) -> Result<Document<'i>, ParseError> {
+    pub fn parse(&'i mut self) -> Result<Document, ParseError> {
         let definitions = self.parse_definitions()?;
         Ok(Document::new(definitions))
     }
 
-    fn parse_definitions(&'i mut self) -> Result<Vec<DefinitionNode<'i>>, ParseError> {
+    fn parse_definitions(&'i mut self) -> Result<Vec<DefinitionNode>, ParseError> {
         self.expect_token(Token::Start)?;
-        let mut nodes: Vec<DefinitionNode> = Vec::new();
-        loop {
-            nodes.push(self.parse_definition()?);
-            if let Some(_) = self.expect_optional_token(&Token::End) {
-                break;
+        if let Some(_) = self.expect_optional_token(&Token::End) {
+            Err(ParseError::DocumentEmpty)
+        } else {
+            let mut nodes: Vec<DefinitionNode> = Vec::new();
+            loop {
+                nodes.push(self.parse_definition()?);
+                if let Some(_) = self.expect_optional_token(&Token::End) {
+                    break;
 
+                }
             }
+            Ok(nodes)
         }
-        Ok(nodes)
-
-        // self.many(Token::Start, |ast| ast.parse_definition(), Token::End)
     }
 
-    fn parse_definition(&mut self) -> Result<DefinitionNode<'i>, ParseError> {
+    fn parse_definition(&mut self) -> Result<DefinitionNode, ParseError> {
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
@@ -70,7 +72,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_type(&mut self) -> Result<TypeDefinitionNode<'i>,  ParseError> {
+    fn parse_type(&mut self) -> Result<TypeDefinitionNode,  ParseError> {
         let tok = self.unwrap_next_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match val {
@@ -89,10 +91,25 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_object_type(&mut self) -> Result<ObjectTypeDefinitionNode<'i>, ParseError> {
+    fn parse_object_type(&mut self) -> Result<ObjectTypeDefinitionNode, ParseError> {
 
-        let tok = self.unwrap_next_token()?;
-        Ok(ObjectTypeDefinitionNode::new(tok)?)
+        let name_tok = self.unwrap_next_token()?;
+        if let Token::Name(_, _, _, name) = name_tok {
+            self.expect_token(Token::OpenBrace(0, 0, 0))?;
+
+            let obj = Ok(ObjectTypeDefinitionNode::new(name_tok)?);
+            self.expect_token(Token::CloseBrace(0, 0, 0))?;
+            obj
+        } else {
+            Err(self.parse_error(String::from("Token::Name"), name_tok))
+        }
+    }
+
+    fn parse_error(self: &mut Self, expected: String, received: Token) -> ParseError {
+        ParseError::UnexpectedToken {
+            expected,
+            received: received.to_string().to_owned(),
+        }
     }
 
 
@@ -130,6 +147,7 @@ impl<'i> AST<'i> {
             Err(ParseError::EOF)
         }
     }
+
     fn expect_optional_token<'a>(&'a mut self, tok: &Token<'a>) -> Option<Token<'a>> {
         if let Some(next) = self.lexer.peek() {
             match next {
@@ -195,7 +213,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_runs() {
+    fn it_constructs() {
         let _ast = AST::new("test");
         assert!(true);
     }

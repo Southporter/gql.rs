@@ -1,5 +1,5 @@
 // (position, line, col, value)
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Token<'a> {
     Start,
     End,
@@ -38,4 +38,15 @@ impl<'a> fmt::Display for Token<'a> {
         write!(f, "Token<{:?}>", self)
     }
 }
+
+use std::mem;
+use std::cmp::PartialEq;
+
+impl<'a> PartialEq for Token<'a> {
+    fn eq(&self, other: &Token) -> bool {
+        mem::discriminant(self) == mem::discriminant(other)
+    }
+}
+
+
 
