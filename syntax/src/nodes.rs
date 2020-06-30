@@ -1,5 +1,6 @@
 use crate::token::Token;
 use crate::ast::ParseError;
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
 pub struct NameNode {
@@ -45,6 +46,58 @@ impl StringValueNode {
 #[derive(Debug)]
 enum ValueNode {
     String(StringValueNode),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NamedTypeNode {
+    pub name: NameNode
+}
+
+impl NamedTypeNode {
+    pub fn new(tok: Token) -> Result<NamedTypeNode, ParseError> {
+        Ok(NamedTypeNode {
+            name: NameNode::new(tok)?,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ListTypeNode {
+    pub list_type: Rc<TypeNode>
+}
+
+impl ListTypeNode {
+    pub fn new(list_type: TypeNode) -> ListTypeNode {
+        ListTypeNode {
+            list_type: Rc::new(list_type),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TypeNode {
+    Named(NamedTypeNode),
+    List(ListTypeNode),
+    NonNull(Rc<TypeNode>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FieldDefinitionNode {
+    pub description: Option<StringValueNode>,
+    pub name: NameNode,
+    // arguments: Option<Vec<InputValueDefinitionNode>
+    pub field_type: TypeNode,
+    // directives: Vec<DirectiveDefinitionNode>,
+}
+
+impl FieldDefinitionNode {
+    pub fn new(name: Token, field_type: TypeNode) -> Result<FieldDefinitionNode, ParseError> {
+        Ok(FieldDefinitionNode {
+            description: None,
+            name: NameNode::new(name)?,
+            field_type,
+        })
+    }
 }
 
 // struct Location<'a> {
@@ -113,15 +166,15 @@ pub struct ObjectTypeDefinitionNode {
     pub name: NameNode,
     // interfaces: Vec<NamedTypeNode>,
     // directives: Vec<DirectiveDefinitionNode>,
-    // fields: Vec<FieldDefinitionNode>
+    pub fields: Vec<FieldDefinitionNode>
 }
 
 impl ObjectTypeDefinitionNode {
-    pub fn new(tok: Token) -> Result<ObjectTypeDefinitionNode, ParseError> {
+    pub fn new(tok: Token, fields: Vec<FieldDefinitionNode>) -> Result<ObjectTypeDefinitionNode, ParseError> {
         Ok(ObjectTypeDefinitionNode {
             description: None,
             name: NameNode::new(tok)?,
-            // fields: vec![]
+            fields
         })
     }
 }

@@ -19,7 +19,8 @@ pub fn parse<'a>(query: &'a str) -> Result<Document, ParseError>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode};
+    use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode};
+    use std::rc::Rc;
 
     #[test]
     fn it_handles_lexing_error() {
@@ -32,7 +33,12 @@ mod tests {
     #[test]
     fn parses_object() {
         println!("parsing an object");
-        let input = r#"type Obj{
+        let input = r#"type Obj {
+  name: String
+  id:   Int!
+  strs: [String]
+  refIds: [Int!]!
+  someIds: [Int]!
 }"#;
         let res = parse(input);
         println!("res: {:?}", res);
@@ -48,7 +54,103 @@ mod tests {
                                     name: NameNode {
                                         value: input.get(5..8).unwrap().to_owned()
                                     },
-                                    // fields: vec![],
+                                    fields: vec![
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: input.get(13..17).unwrap().to_owned()
+                                            },
+                                            field_type: TypeNode::Named(
+                                                            NamedTypeNode {
+                                                                name: NameNode {
+                                                                    value: input.get(19..25).unwrap().to_owned()
+                                                                }
+                                                            }
+                                                        )
+
+                                        },
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: input.get(28..30).unwrap().to_owned()
+                                            },
+                                            field_type: TypeNode::NonNull(
+                                                            Rc::new(
+                                                                TypeNode::Named(
+                                                                    NamedTypeNode {
+                                                                        name: NameNode {
+                                                                            value: input.get(34..37).unwrap().to_owned()
+                                                                        }
+                                                                    }
+                                                                )
+                                                            )
+                                                        )
+
+                                        },
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("strs")
+                                            },
+                                            field_type: TypeNode::List(
+                                                ListTypeNode {
+                                                    list_type: Rc::new(
+                                                        TypeNode::Named(
+                                                            NamedTypeNode {
+                                                                name: NameNode {
+                                                                    value: String::from("String")
+                                                                }
+                                                            }
+                                                        )
+                                                    )
+                                                }
+                                            )
+                                        },
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("refIds")
+                                            },
+                                            field_type: TypeNode::NonNull(
+                                                Rc::new(TypeNode::List(
+                                                    ListTypeNode::new(
+                                                        TypeNode::NonNull(
+                                                            Rc::new(
+                                                                TypeNode::Named(
+                                                                    NamedTypeNode {
+                                                                        name: NameNode {
+                                                                            value: String::from("Int")
+                                                                        }
+                                                                    }
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                ))
+                                            )
+                                        },
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("someIds")
+                                            },
+                                            field_type: TypeNode::NonNull(
+                                                Rc::new(
+                                                    TypeNode::List(
+                                                        ListTypeNode::new(
+                                                            TypeNode::Named(
+                                                                NamedTypeNode {
+                                                                    name: NameNode {
+                                                                        value: String::from("Int")
+                                                                    }
+                                                                }
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        },
+                                    ],
                                 }
                             )
                         )

@@ -1,7 +1,8 @@
 use crate::lexer::{Lexer, LexErrorKind};
 use crate::token::Token;
-use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode};
+use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode};
 use std::iter::{Iterator, Peekable};
+use std::rc::Rc;
 
 pub struct AST<'i>
 {
@@ -94,15 +95,55 @@ impl<'i> AST<'i> {
     fn parse_object_type(&mut self) -> Result<ObjectTypeDefinitionNode, ParseError> {
 
         let name_tok = self.unwrap_next_token()?;
-        if let Token::Name(_, _, _, name) = name_tok {
-            self.expect_token(Token::OpenBrace(0, 0, 0))?;
+        if let Token::Name(_, _, _, _name) = name_tok {
+            let fields = self.parse_fields()?;
 
-            let obj = Ok(ObjectTypeDefinitionNode::new(name_tok)?);
-            self.expect_token(Token::CloseBrace(0, 0, 0))?;
+            let obj = Ok(ObjectTypeDefinitionNode::new(name_tok, fields)?);
             obj
         } else {
             Err(self.parse_error(String::from("Token::Name"), name_tok))
         }
+    }
+
+    fn parse_fields(&mut self) -> Result<Vec<FieldDefinitionNode>, ParseError> {
+        let mut fields: Vec<FieldDefinitionNode> = Vec::new();
+        self.expect_token(Token::OpenBrace(0, 0, 0))?;
+        loop {
+            if let (Some(_)) = self.expect_optional_token(&Token::CloseBrace(0, 0, 0)) {
+                break;
+            }
+            fields.push(self.parse_field()?);
+        }
+        Ok(fields)
+    }
+
+    fn parse_field(&mut self) -> Result<FieldDefinitionNode, ParseError> {
+        let name = self.unwrap_next_token()?;
+        self.expect_token(Token::Colon(0,0,0))?;
+        let field_type = self.parse_field_type()?;
+        FieldDefinitionNode::new(name, field_type)
+    }
+
+    fn parse_field_type(&mut self) -> Result<TypeNode, ParseError> {
+        let mut field_type: TypeNode;
+        if let Some(_) = self.expect_optional_token(&Token::OpenSquare(0, 0, 0)) {
+            field_type = TypeNode::List(
+                ListTypeNode::new(self.parse_field_type()?)
+            );
+            self.expect_token(Token::CloseSquare(0,0,0))?;
+        } else {
+            field_type = TypeNode::Named(
+                NamedTypeNode::new(
+                    self.expect_token(Token::Name(0,0,0,""))?
+                )?
+            );
+        }
+        if let Some(_) = self.expect_optional_token(&Token::Bang(0,0,0)) {
+            field_type = TypeNode::NonNull(
+                Rc::new(field_type)
+            );
+        }
+        Ok(field_type)
     }
 
     fn parse_error(self: &mut Self, expected: String, received: Token) -> ParseError {
@@ -128,7 +169,7 @@ impl<'i> AST<'i> {
     //     Ok(nodes)
     // }
 
-    fn expect_token(&mut self, tok: Token) -> Result<(), ParseError> {
+    fn expect_token<'a>(&'a mut self, tok: Token) -> Result<Token<'a>, ParseError> {
         if let Some(next) = self.lexer.next() {
             match next {
                 Ok(actual) => {
@@ -138,7 +179,7 @@ impl<'i> AST<'i> {
                             received: actual.to_string().to_owned(),
                         })
                     } else {
-                        Ok(())
+                        Ok(actual)
                     }
                 },
                 Err(e) => Err(ParseError::LexError(e)),
