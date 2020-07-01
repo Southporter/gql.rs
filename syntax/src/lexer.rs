@@ -4,7 +4,7 @@ use std::iter::Peekable;
 use std::iter::Iterator;
 use regex::Regex;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum LexErrorKind {
     UnmatchQuote { line: usize, col: usize },
     UnknownCharacter { line: usize, col: usize },

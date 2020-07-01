@@ -1,18 +1,17 @@
-use crate::lexer::Lexer;
 use crate::token::Token;
-use crate::ast::ParseError;
-use std::iter::Peekable;
+use crate::error::ParseError;
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
-pub struct NameNode<'a> {
-    pub value: &'a str
+pub struct NameNode {
+    pub value: String
 }
-impl<'a> NameNode<'a> {
+impl NameNode {
     pub fn new(token: Token) -> Result<NameNode, ParseError> {
         match token {
             Token::Name(_, _, _, value) => Ok(
                 NameNode {
-                    value
+                    value: value.to_owned(),
                 }
             ),
             _ => Err(ParseError::UnexpectedToken {
@@ -23,17 +22,17 @@ impl<'a> NameNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct StringValueNode<'a> {
-    pub value: &'a str
+pub struct StringValueNode {
+    pub value: String
 }
 
-impl<'a> StringValueNode<'a> {
+impl StringValueNode {
     pub fn new(token: Token) -> Result<StringValueNode, ParseError> {
         match token {
-            Token::Str(_, _, _, value) |
-            Token::BlockStr(_, _, _, value) => Ok(
+            Token::Str(_, _, _, val) |
+            Token::BlockStr(_, _, _, val) => Ok(
                 StringValueNode {
-                    value,
+                    value: val.to_owned(),
                 }
             ),
             _ => Err(ParseError::UnexpectedToken {
@@ -44,9 +43,61 @@ impl<'a> StringValueNode<'a> {
     }
 }
 
-#[derive(Debug)]
-enum ValueNode<'a> {
-    String(StringValueNode<'a>),
+// #[derive(Debug)]
+// enum ValueNode {
+//     String(StringValueNode),
+// }
+
+#[derive(Debug, PartialEq)]
+pub struct NamedTypeNode {
+    pub name: NameNode
+}
+
+impl NamedTypeNode {
+    pub fn new(tok: Token) -> Result<NamedTypeNode, ParseError> {
+        Ok(NamedTypeNode {
+            name: NameNode::new(tok)?,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ListTypeNode {
+    pub list_type: Rc<TypeNode>
+}
+
+impl ListTypeNode {
+    pub fn new(list_type: TypeNode) -> ListTypeNode {
+        ListTypeNode {
+            list_type: Rc::new(list_type),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TypeNode {
+    Named(NamedTypeNode),
+    List(ListTypeNode),
+    NonNull(Rc<TypeNode>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FieldDefinitionNode {
+    pub description: Option<StringValueNode>,
+    pub name: NameNode,
+    // arguments: Option<Vec<InputValueDefinitionNode>
+    pub field_type: TypeNode,
+    // directives: Vec<DirectiveDefinitionNode>,
+}
+
+impl FieldDefinitionNode {
+    pub fn new(name: Token, field_type: TypeNode) -> Result<FieldDefinitionNode, ParseError> {
+        Ok(FieldDefinitionNode {
+            description: None,
+            name: NameNode::new(name)?,
+            field_type,
+        })
+    }
 }
 
 // struct Location<'a> {
@@ -77,14 +128,14 @@ enum ValueNode<'a> {
 
 const SCHEMA: &'static str = "SchemaDefinition";
 #[derive(Debug, PartialEq)]
-pub struct SchemaDefinitionNode<'a> {
+pub struct SchemaDefinitionNode {
     kind: &'static str,
-    description: Option<StringValueNode<'a>>,
+    description: Option<StringValueNode>,
     // directives: Vec<DirectiveDefinitionNode>,
     // operations: Vec<OperationTypeDefinitionNode>,
 }
-impl<'a> SchemaDefinitionNode<'a> {
-    pub fn new() -> SchemaDefinitionNode<'a> {
+impl SchemaDefinitionNode {
+    pub fn new() -> SchemaDefinitionNode {
         SchemaDefinitionNode {
             kind: SCHEMA,
             description: None
@@ -93,13 +144,13 @@ impl<'a> SchemaDefinitionNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ScalarTypeDefinitionNode<'a> {
-    description: Option<StringValueNode<'a>>,
-    name: NameNode<'a>,
+pub struct ScalarTypeDefinitionNode {
+    description: Option<StringValueNode>,
+    name: NameNode,
     // directives: Vec<DirectiveDefinitionNode>
 }
 
-impl<'a> ScalarTypeDefinitionNode<'a> {
+impl ScalarTypeDefinitionNode {
     pub fn new(tok: Token) -> Result<ScalarTypeDefinitionNode, ParseError> {
         let name = NameNode::new(tok)?;
         Ok(ScalarTypeDefinitionNode {
@@ -110,30 +161,28 @@ impl<'a> ScalarTypeDefinitionNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ObjectTypeDefinitionNode<'a> {
-    pub description: Option<StringValueNode<'a>>,
-    pub name: NameNode<'a>,
+pub struct ObjectTypeDefinitionNode {
+    pub description: Option<StringValueNode>,
+    pub name: NameNode,
     // interfaces: Vec<NamedTypeNode>,
     // directives: Vec<DirectiveDefinitionNode>,
-    // fields: Vec<FieldDefinitionNode<'a>>
+    pub fields: Vec<FieldDefinitionNode>
 }
 
-impl<'a> ObjectTypeDefinitionNode<'a> {
-    pub fn new(tok: Token) -> Result<ObjectTypeDefinitionNode, ParseError> {
-        let name = NameNode::new(tok)?;
+impl ObjectTypeDefinitionNode {
+    pub fn new(tok: Token, fields: Vec<FieldDefinitionNode>) -> Result<ObjectTypeDefinitionNode, ParseError> {
         Ok(ObjectTypeDefinitionNode {
             description: None,
-            name,
+            name: NameNode::new(tok)?,
+            fields
         })
     }
 }
 
-
-
 #[derive(Debug, PartialEq)]
-pub enum TypeDefinitionNode<'a> {
-    Scalar(ScalarTypeDefinitionNode<'a>),
-    Object(ObjectTypeDefinitionNode<'a>),
+pub enum TypeDefinitionNode {
+    Scalar(ScalarTypeDefinitionNode),
+    Object(ObjectTypeDefinitionNode),
     // Interface(InterfaceTypeDefinitionNode)
     // Union(UnionTypeDefinitionNode)
     // Enum(EnumTypeDefinitionNode)
@@ -141,90 +190,27 @@ pub enum TypeDefinitionNode<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum TypeSystemDefinitionNode<'a> {
-    Schema(SchemaDefinitionNode<'a>),
-    Type(TypeDefinitionNode<'a>),
+pub enum TypeSystemDefinitionNode {
+    Schema(SchemaDefinitionNode),
+    Type(TypeDefinitionNode),
     // Directive(DirectiveDefinitionNode),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum DefinitionNode<'a> {
+pub enum DefinitionNode {
     // Executable(ExecutableDefinitionNode),
-    TypeSystem(TypeSystemDefinitionNode<'a>),
+    TypeSystem(TypeSystemDefinitionNode),
     // Extension(TypeSystemExtensionNode),
 }
 
-fn parse_definition<'a>(_iter: &mut Lex<'a>) -> Result<DefinitionNode<'a>, ParseError> {
-    Err(ParseError::DocumentEmpty)
-}
-
-fn parse_definitions<'a>(iter: &mut Lex<'a>) -> Result<Vec<DefinitionNode<'a>>, ParseError> {
-    many(iter, Token::Start, parse_definition, Token::End)
-}
-
-type Lex<'i> = Peekable<Lexer<'i>>;
-
 #[derive(Debug, PartialEq)]
-pub struct Document<'a> {
-    pub definitions: Vec<DefinitionNode<'a>>,
+pub struct Document {
+    pub definitions: Vec<DefinitionNode>,
 }
-impl<'a> Document<'a> {
-    pub fn new(iter: &mut Lex<'a>) -> Result<Document<'a>, ParseError> {
-        let definitions = parse_definitions(iter)?;
-        Ok(Document {
+impl Document {
+    pub fn new(definitions: Vec<DefinitionNode>) -> Document {
+        Document {
             definitions
-        })
-    }
-}
-
-fn expect_optional_token<'a>(iter: &mut Lex<'a>, tok: &Token<'a>) -> Option<Token<'a>> {
-    if let Some(next) = iter.peek() {
-        match next {
-            Ok(actual) => {
-                if *actual == *tok {
-                    Some(iter.next().unwrap().unwrap())
-                } else {
-                    None
-                }
-            },
-            Err(_) => None
-        }
-    } else {
-        None
-    }
-}
-
-fn expect_token<'a>(iter: &mut Lex<'a>, tok: Token) -> Result<(), ParseError> {
-    if let Some(next) = iter.next() {
-        match next {
-            Ok(actual) => {
-                if actual != tok {
-                    Err(ParseError::UnexpectedToken {
-                        expected: tok.to_string(),
-                        received: actual.to_string().to_owned(),
-                    })
-                } else {
-                    Ok(())
-                }
-            },
-            Err(e) => Err(ParseError::LexError(e)),
-        }
-    } else {
-        Err(ParseError::EOF)
-    }
-}
-
-fn many<'a, T, P>(iter: &mut Lex<'a>, start: Token<'a>, parser: P, end: Token<'a>) -> Result<Vec<T>, ParseError>
-where P: Fn(&mut Lex<'a>) -> Result<T, ParseError>
-{
-    expect_token(iter, start)?;
-    let mut nodes: Vec<T> = Vec::new();
-    loop {
-        let node = parser(iter)?;
-        if let Some(_) = expect_optional_token(iter, &end) {
-            nodes.push(node);
-            break;
         }
     }
-    Ok(nodes)
 }
