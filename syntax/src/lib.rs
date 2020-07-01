@@ -2,14 +2,14 @@
 pub mod token;
 pub mod lexer;
 pub mod ast;
+pub mod error;
 mod nodes;
 
-use ast::{AST, ParseError};
-use nodes::{Document};
-// use lexer::LexErrorKind;
-// use token::Token;
+use ast::AST;
+use nodes::Document;
+use error::ParseResult;
 
-pub fn parse<'a>(query: &'a str) -> Result<Document, ParseError>
+pub fn parse<'a>(query: &'a str) -> ParseResult<Document>
 {
     let mut ast = AST::new(query)?;
     let document = ast.parse()?;
@@ -20,6 +20,7 @@ pub fn parse<'a>(query: &'a str) -> Result<Document, ParseError>
 mod tests {
     use super::*;
     use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode};
+    use crate::error::ParseError;
     use std::rc::Rc;
 
     #[test]
@@ -41,7 +42,6 @@ mod tests {
   someIds: [Int]!
 }"#;
         let res = parse(input);
-        println!("res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(),
             Document {
@@ -52,18 +52,18 @@ mod tests {
                                 ObjectTypeDefinitionNode {
                                     description: None,
                                     name: NameNode {
-                                        value: input.get(5..8).unwrap().to_owned()
+                                        value: String::from("Obj")
                                     },
                                     fields: vec![
                                         FieldDefinitionNode {
                                             description: None,
                                             name: NameNode {
-                                                value: input.get(13..17).unwrap().to_owned()
+                                                value: String::from("name")
                                             },
                                             field_type: TypeNode::Named(
                                                             NamedTypeNode {
                                                                 name: NameNode {
-                                                                    value: input.get(19..25).unwrap().to_owned()
+                                                                    value: String::from("String")
                                                                 }
                                                             }
                                                         )
@@ -72,14 +72,14 @@ mod tests {
                                         FieldDefinitionNode {
                                             description: None,
                                             name: NameNode {
-                                                value: input.get(28..30).unwrap().to_owned()
+                                                value: String::from("id")
                                             },
                                             field_type: TypeNode::NonNull(
                                                             Rc::new(
                                                                 TypeNode::Named(
                                                                     NamedTypeNode {
                                                                         name: NameNode {
-                                                                            value: input.get(34..37).unwrap().to_owned()
+                                                                            value: String::from("Int")
                                                                         }
                                                                     }
                                                                 )

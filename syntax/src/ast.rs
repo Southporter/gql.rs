@@ -1,12 +1,12 @@
-use crate::lexer::{Lexer, LexErrorKind};
+use crate::lexer::Lexer;
 use crate::token::Token;
 use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode};
+use crate::error::{ParseResult, ParseError};
 use std::iter::{Iterator, Peekable};
 use std::rc::Rc;
 
 pub struct AST<'i>
 {
-    input: &'i str,
     lexer: Peekable<Lexer<'i>>,
 }
 
@@ -23,20 +23,19 @@ impl<'i> Debug for AST<'i> {
 }
 
 impl<'i> AST<'i> {
-    pub fn new(input: &'i str) -> Result<AST<'i>, ParseError> {
+    pub fn new(input: &'i str) -> ParseResult<AST<'i>> {
         let lexer = Lexer::new(input).peekable();
         Ok(AST {
-            input,
             lexer,
         })
     }
 
-    pub fn parse(&'i mut self) -> Result<Document, ParseError> {
+    pub fn parse(&'i mut self) -> ParseResult<Document> {
         let definitions = self.parse_definitions()?;
         Ok(Document::new(definitions))
     }
 
-    fn parse_definitions(&'i mut self) -> Result<Vec<DefinitionNode>, ParseError> {
+    fn parse_definitions(&'i mut self) -> ParseResult<Vec<DefinitionNode>> {
         self.expect_token(Token::Start)?;
         if let Some(_) = self.expect_optional_token(&Token::End) {
             Err(ParseError::DocumentEmpty)
@@ -53,7 +52,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_definition(&mut self) -> Result<DefinitionNode, ParseError> {
+    fn parse_definition(&mut self) -> ParseResult<DefinitionNode> {
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
@@ -92,7 +91,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_object_type(&mut self) -> Result<ObjectTypeDefinitionNode, ParseError> {
+    fn parse_object_type(&mut self) -> ParseResult<ObjectTypeDefinitionNode> {
 
         let name_tok = self.unwrap_next_token()?;
         if let Token::Name(_, _, _, _name) = name_tok {
@@ -105,11 +104,11 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_fields(&mut self) -> Result<Vec<FieldDefinitionNode>, ParseError> {
+    fn parse_fields(&mut self) -> ParseResult<Vec<FieldDefinitionNode>> {
         let mut fields: Vec<FieldDefinitionNode> = Vec::new();
         self.expect_token(Token::OpenBrace(0, 0, 0))?;
         loop {
-            if let (Some(_)) = self.expect_optional_token(&Token::CloseBrace(0, 0, 0)) {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(0, 0, 0)) {
                 break;
             }
             fields.push(self.parse_field()?);
@@ -117,14 +116,14 @@ impl<'i> AST<'i> {
         Ok(fields)
     }
 
-    fn parse_field(&mut self) -> Result<FieldDefinitionNode, ParseError> {
+    fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
         let name = self.unwrap_next_token()?;
         self.expect_token(Token::Colon(0,0,0))?;
         let field_type = self.parse_field_type()?;
         FieldDefinitionNode::new(name, field_type)
     }
 
-    fn parse_field_type(&mut self) -> Result<TypeNode, ParseError> {
+    fn parse_field_type(&mut self) -> ParseResult<TypeNode> {
         let mut field_type: TypeNode;
         if let Some(_) = self.expect_optional_token(&Token::OpenSquare(0, 0, 0)) {
             field_type = TypeNode::List(
@@ -153,23 +152,7 @@ impl<'i> AST<'i> {
         }
     }
 
-
-    // fn many<T, P>(&'i mut self, start: Token<'i>, parser: P, end: Token<'i>) -> Result<Vec<T>, ParseError>
-    // where P: Fn(&'i mut AST<'i>) -> Result<T, ParseError>
-    // {
-    //     self.expect_token(start)?;
-    //     let mut nodes: Vec<T> = Vec::new();
-    //     loop {
-    //         let node = parser(self)?;
-    //         if let Some(_) = self.expect_optional_token(&end) {
-    //             nodes.push(node);
-    //             break;
-    //         }
-    //     }
-    //     Ok(nodes)
-    // }
-
-    fn expect_token<'a>(&'a mut self, tok: Token) -> Result<Token<'a>, ParseError> {
+    fn expect_token<'a>(&'a mut self, tok: Token) -> ParseResult<Token<'a>> {
         if let Some(next) = self.lexer.next() {
             match next {
                 Ok(actual) => {
@@ -206,7 +189,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn unwrap_peeked_token(&mut self) -> Result<&Token<'i>, ParseError> {
+    fn unwrap_peeked_token(&mut self) -> ParseResult<&Token<'i>> {
         match self.lexer.peek() {
             Some(res) => {
                 match res {
@@ -220,7 +203,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn unwrap_next_token(&mut self) -> Result<Token<'i>, ParseError> {
+    fn unwrap_next_token(&mut self) -> ParseResult<Token<'i>> {
         match self.lexer.next() {
             Some(res) => {
                 match res {
@@ -233,15 +216,6 @@ impl<'i> AST<'i> {
             None => Err(ParseError::EOF),
         }
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ParseError {
-    BadValue,
-    DocumentEmpty,
-    EOF,
-    LexError(LexErrorKind),
-    UnexpectedToken { expected: String, received: String }
 }
 
 // struct Location<'a> {

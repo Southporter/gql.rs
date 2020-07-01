@@ -1,5 +1,5 @@
 use crate::token::Token;
-use crate::ast::ParseError;
+use crate::error::ParseError;
 use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
@@ -43,10 +43,10 @@ impl StringValueNode {
     }
 }
 
-#[derive(Debug)]
-enum ValueNode {
-    String(StringValueNode),
-}
+// #[derive(Debug)]
+// enum ValueNode {
+//     String(StringValueNode),
+// }
 
 #[derive(Debug, PartialEq)]
 pub struct NamedTypeNode {
