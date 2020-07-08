@@ -44,7 +44,44 @@ use std::cmp::PartialEq;
 
 impl<'a> PartialEq for Token<'a> {
     fn eq(&self, other: &Token) -> bool {
-        mem::discriminant(self) == mem::discriminant(other)
+        match self {
+            Token::Name(_, _, _, value) => matches!(other, Token::Name(_, _, _, value2) if *value2 == *value),
+            Token::Str(_, _, _, value) => matches!(other, Token::Str(_, _, _, value2) if *value2 == *value),
+            Token::BlockStr(_, _, _, value) => matches!(other, Token::BlockStr(_, _, _, value2) if *value2 == *value),
+            Token::Int(_, _, _, value) => matches!(other, Token::Int(_, _, _, value2) if value2 == value),
+            Token::Float(_, _, _, value) => matches!(other, Token::Float(_, _, _, value2) if value2 == value),
+            _ => mem::discriminant(self) == mem::discriminant(other),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compare_type() {
+        assert!(Token::Start == Token::Start);
+        assert!(Token::End != Token::Start);
+        assert!(Token::Bang(0, 0, 0) == Token::Bang(12, 2, 3));
+        assert!(Token::Amp(0, 0, 0) != Token::Float(0, 0, 0, 0.0));
+        assert!(Token::Dollar(0, 0, 0) != Token::OpenBrace(0, 1, 1));
+        assert!(Token::Int(0, 0, 0, 0) != Token::Float(0, 0, 0, 0.0));
+    }
+
+    #[test]
+    fn compare_value() {
+        assert!(Token::Int(0, 0, 0, 10) == Token::Int(12, 3, 14, 10));
+        assert!(Token::Float(0, 0, 0, 3.14) == Token::Float(3, 1, 4, 3.14));
+        assert!(Token::Name(0, 0, 0, "id") == Token::Name(3, 3, 3, "id"));
+        assert!(Token::Str(0, 0, 0, "Comment") == Token::Str(1, 2, 1, "Comment"));
+        assert!(Token::BlockStr(0, 0, 0, "Comment") == Token::BlockStr(1, 2, 1, "Comment"));
+
+        assert!(Token::Int(0, 0, 0, 10) != Token::Int(12, 3, 14, 11));
+        assert!(Token::Float(0, 0, 0, 3.14) != Token::Float(3, 1, 4, 3.14159));
+        assert!(Token::Name(0, 0, 0, "id") != Token::Name(3, 3, 3, "val"));
+        assert!(Token::Str(0, 0, 0, "Comment") != Token::Str(1, 2, 1, "Your comment here"));
+        assert!(Token::BlockStr(0, 0, 0, "Comment") != Token::BlockStr(1, 2, 1, "Your comment here"));
     }
 }
 
