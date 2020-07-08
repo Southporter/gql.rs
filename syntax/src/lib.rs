@@ -163,6 +163,7 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn parses_documentation() {
         println!("parsing an object");
         let input = r#"
@@ -211,5 +212,25 @@ type Obj {
                 )
             ]
         });
+    }
+
+    #[test]
+    fn it_handles_enums() {
+        println!("parsing enums");
+        let res = parse(r#"enum VEHICLE_TYPE {
+  SEDAN
+  SUV
+  COMPACT
+  TRUCK
+  HYBRID
+}
+"#);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(),
+            Document {
+                definitions: vec![
+                ]
+            }
+        );
     }
 }
