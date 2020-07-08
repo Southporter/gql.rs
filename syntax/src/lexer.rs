@@ -125,11 +125,7 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     tok
                 },
-                ' ' => {
-                    self.advance();
-                    self.get_next_token()
-                },
-                '\t' => {
+                ' ' | '\t' | ',' => {
                     self.advance();
                     self.get_next_token()
                 },
@@ -278,9 +274,6 @@ impl<'a> Lexer<'a> {
                         let cur_col = self.col;
                         let cur_pos = self.position;
                         self.advance_n(3);
-                        println!("pos: {}..{}", cur_pos, self.position);
-                        println!("pos: {}..{}", cur_col, self.col);
-                        println!("next: {:?}", self.input.peek());
                         Ok(Token::Spread(cur_pos, self.line, cur_col))
                     } else {
                         Err(LexErrorKind::UnexpectedCharacter { line: self.line, col: self.col })
@@ -709,5 +702,24 @@ text""""#);
         let err = tokenize("%");
         assert!(err.is_err());
         assert_eq!(err.unwrap_err(), LexErrorKind::UnknownCharacter { line: 1, col: 1 });
+    }
+
+    #[test]
+    fn ignores_commas() {
+        let empty = tokenize("{
+  one,
+  two,
+  three,,,
+}");
+        assert!(empty.is_ok());
+        assert_eq!(empty.unwrap(), vec![
+            Token::Start,
+            Token::OpenBrace(0, 1, 1),
+            Token::Name(4, 2, 3, "one"),
+            Token::Name(10, 3, 3, "two"),
+            Token::Name(17, 4, 3, "three"),
+            Token::CloseBrace(26, 5, 1),
+            Token::End,
+        ]);
     }
 }
