@@ -1,6 +1,6 @@
 use crate::lexer::Lexer;
 use crate::token::Token;
-use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode};
+use crate::nodes::*;
 use crate::error::{ParseResult, ParseError};
 use std::iter::{Iterator, Peekable};
 use std::rc::Rc;
@@ -35,6 +35,26 @@ impl<'i> AST<'i> {
         Ok(Document::new(definitions))
     }
 
+    fn parse_description(&mut self) -> ParseResult<Description> {
+        match self.unwrap_peeked_token()? {
+            Token::BlockStr(_, _, _, value) => {
+                let res = Some(StringValueNode {
+                    value: String::from(*value)
+                });
+                self.unwrap_next_token()?;
+                Ok(res)
+            },
+            Token::Str(_, _, _, value) => {
+                let res = Some(StringValueNode {
+                    value: String::from(*value),
+                });
+                self.unwrap_next_token()?;
+                Ok(res)
+            },
+            _ => Ok(None),
+        }
+    }
+
     fn parse_definitions(&'i mut self) -> ParseResult<Vec<DefinitionNode>> {
         self.expect_token(Token::Start)?;
         if let Some(_) = self.expect_optional_token(&Token::End) {
@@ -53,12 +73,14 @@ impl<'i> AST<'i> {
     }
 
     fn parse_definition(&mut self) -> ParseResult<DefinitionNode> {
+        let description = self.parse_description()?;
+        println!("Got description: {:?}", description);
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
                 "type" => Ok(DefinitionNode::TypeSystem(
                     TypeSystemDefinitionNode::Type(
-                        self.parse_type()?
+                        self.parse_type(description)?
                     )
                 )),
                 _ => Err(ParseError::BadValue),
@@ -72,13 +94,13 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_type(&mut self) -> Result<TypeDefinitionNode,  ParseError> {
+    fn parse_type(&mut self, description: Description) -> Result<TypeDefinitionNode,  ParseError> {
         let tok = self.unwrap_next_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match val {
                 "type" => Ok(
                     TypeDefinitionNode::Object(
-                        self.parse_object_type()?
+                        self.parse_object_type(description)?
                     )
                 ),
                 _ => Err(ParseError::BadValue),
@@ -91,13 +113,13 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_object_type(&mut self) -> ParseResult<ObjectTypeDefinitionNode> {
+    fn parse_object_type(&mut self, description: Description) -> ParseResult<ObjectTypeDefinitionNode> {
 
         let name_tok = self.unwrap_next_token()?;
         if let Token::Name(_, _, _, _name) = name_tok {
             let fields = self.parse_fields()?;
 
-            let obj = Ok(ObjectTypeDefinitionNode::new(name_tok, fields)?);
+            let obj = Ok(ObjectTypeDefinitionNode::new(name_tok, description, fields)?);
             obj
         } else {
             Err(self.parse_error(String::from("Token::Name"), name_tok))
@@ -117,10 +139,11 @@ impl<'i> AST<'i> {
     }
 
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
+        let description = self.parse_description()?;
         let name = self.unwrap_next_token()?;
         self.expect_token(Token::Colon(0,0,0))?;
         let field_type = self.parse_field_type()?;
-        FieldDefinitionNode::new(name, field_type)
+        FieldDefinitionNode::new(name, field_type, description)
     }
 
     fn parse_field_type(&mut self) -> ParseResult<TypeNode> {

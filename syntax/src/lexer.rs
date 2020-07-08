@@ -53,6 +53,7 @@ impl<'a> Lexer<'a> {
         self.col += n;
         self.input.position(|(i, _)| { println!("Advance N: {} of {}", i, n); i == new_pos });
     }
+
     fn advance_to(&mut self, pos: usize) {
         self.position = pos;
         self.col = pos;
@@ -706,19 +707,39 @@ text""""#);
 
     #[test]
     fn ignores_commas() {
-        let empty = tokenize("{
+        let query = tokenize("{
   one,
   two,
   three,,,
 }");
-        assert!(empty.is_ok());
-        assert_eq!(empty.unwrap(), vec![
+        assert!(query.is_ok());
+        assert_eq!(query.unwrap(), vec![
             Token::Start,
             Token::OpenBrace(0, 1, 1),
             Token::Name(4, 2, 3, "one"),
             Token::Name(10, 3, 3, "two"),
             Token::Name(17, 4, 3, "three"),
             Token::CloseBrace(26, 5, 1),
+            Token::End,
+        ]);
+    }
+
+    #[test]
+    fn handles_text_after_strings() {
+        let strings = tokenize(r#"
+"""This is a block string"""
+name,
+"And a single string"
+value,
+"#);
+        println!("Strings: {:?}", strings);
+        assert!(strings.is_ok());
+        assert_eq!(strings.unwrap(), vec![
+            Token::Start,
+            Token::BlockStr(1, 2, 1, "This is a block string"),
+            Token::Name(30, 3, 1, "name"),
+            Token::Str(36, 4, 1, "And a single string"),
+            Token::Name(58, 5, 1, "value"),
             Token::End,
         ]);
     }

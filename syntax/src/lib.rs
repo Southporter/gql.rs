@@ -19,7 +19,8 @@ pub fn parse<'a>(query: &'a str) -> ParseResult<Document>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode};
+    // use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode, StringValueNode};
+    use crate::nodes::*;
     use crate::error::ParseError;
     use std::rc::Rc;
 
@@ -158,5 +159,57 @@ mod tests {
                 ]
             }
         )
+    }
+
+    #[test]
+    fn parses_documentation() {
+        println!("parsing an object");
+        let input = r#"
+"""
+This is a generic object comment
+They can be multiple lines
+"""
+type Obj {
+  """This is the name of the object"""
+  name: String
+}"#;
+        let res = parse(input);
+        println!("res! {:?}", res);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), Document {
+            definitions: vec![
+                DefinitionNode::TypeSystem(
+                    TypeSystemDefinitionNode::Type(
+                        TypeDefinitionNode::Object(
+                            ObjectTypeDefinitionNode {
+                                description: Some(StringValueNode {
+                                    value: String::from("\nThis is a generic object comment\nThey can be multiple lines\n")
+                                }),
+                                name: NameNode {
+                                    value: String::from("Obj")
+                                },
+                                fields: vec![
+                                    FieldDefinitionNode {
+                                        description: Some(StringValueNode {
+                                            value: String::from("This is the name of the object")
+                                        }),
+                                        name: NameNode {
+                                            value: String::from("name")
+                                        },
+                                        field_type: TypeNode::Named(
+                                            NamedTypeNode {
+                                                name: NameNode {
+                                                    value: String::from("String")
+                                                }
+                                            }
+                                        )
+                                    },
+                                ],
+                            }
+                        )
+                    )
+                )
+            ]
+        });
     }
 }

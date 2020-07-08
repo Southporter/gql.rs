@@ -2,6 +2,7 @@ use crate::token::Token;
 use crate::error::ParseError;
 use std::rc::Rc;
 
+
 #[derive(Debug, PartialEq)]
 pub struct NameNode {
     pub value: String
@@ -43,6 +44,8 @@ impl StringValueNode {
     }
 }
 
+pub type Description = Option<StringValueNode>;
+
 // #[derive(Debug)]
 // enum ValueNode {
 //     String(StringValueNode),
@@ -83,7 +86,7 @@ pub enum TypeNode {
 
 #[derive(Debug, PartialEq)]
 pub struct FieldDefinitionNode {
-    pub description: Option<StringValueNode>,
+    pub description: Description,
     pub name: NameNode,
     // arguments: Option<Vec<InputValueDefinitionNode>
     pub field_type: TypeNode,
@@ -91,9 +94,9 @@ pub struct FieldDefinitionNode {
 }
 
 impl FieldDefinitionNode {
-    pub fn new(name: Token, field_type: TypeNode) -> Result<FieldDefinitionNode, ParseError> {
+    pub fn new(name: Token, field_type: TypeNode, description: Description) -> Result<FieldDefinitionNode, ParseError> {
         Ok(FieldDefinitionNode {
-            description: None,
+            description,
             name: NameNode::new(name)?,
             field_type,
         })
@@ -130,7 +133,7 @@ const SCHEMA: &'static str = "SchemaDefinition";
 #[derive(Debug, PartialEq)]
 pub struct SchemaDefinitionNode {
     kind: &'static str,
-    description: Option<StringValueNode>,
+    description: Description,
     // directives: Vec<DirectiveDefinitionNode>,
     // operations: Vec<OperationTypeDefinitionNode>,
 }
@@ -145,7 +148,7 @@ impl SchemaDefinitionNode {
 
 #[derive(Debug, PartialEq)]
 pub struct ScalarTypeDefinitionNode {
-    description: Option<StringValueNode>,
+    description: Description,
     name: NameNode,
     // directives: Vec<DirectiveDefinitionNode>
 }
@@ -162,7 +165,7 @@ impl ScalarTypeDefinitionNode {
 
 #[derive(Debug, PartialEq)]
 pub struct ObjectTypeDefinitionNode {
-    pub description: Option<StringValueNode>,
+    pub description: Description,
     pub name: NameNode,
     // interfaces: Vec<NamedTypeNode>,
     // directives: Vec<DirectiveDefinitionNode>,
@@ -170,9 +173,9 @@ pub struct ObjectTypeDefinitionNode {
 }
 
 impl ObjectTypeDefinitionNode {
-    pub fn new(tok: Token, fields: Vec<FieldDefinitionNode>) -> Result<ObjectTypeDefinitionNode, ParseError> {
+    pub fn new(tok: Token, description: Description, fields: Vec<FieldDefinitionNode>) -> Result<ObjectTypeDefinitionNode, ParseError> {
         Ok(ObjectTypeDefinitionNode {
-            description: None,
+            description,
             name: NameNode::new(tok)?,
             fields
         })
