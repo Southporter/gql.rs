@@ -139,10 +139,15 @@ impl<'i> AST<'i> {
     }
 
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
+        println!("parsing field description");
         let description = self.parse_description()?;
-        let name = self.unwrap_next_token()?;
+        println!("Got field description: {:?}", description);
+        let name = self.expect_token(Token::Name(0,0,0,""))?;
+        println!("Got Name");
         self.expect_token(Token::Colon(0,0,0))?;
+        println!("Got Colon");
         let field_type = self.parse_field_type()?;
+        println!("Got Fieldtype");
         FieldDefinitionNode::new(name, field_type, description)
     }
 
@@ -175,17 +180,19 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn expect_token<'a>(&'a mut self, tok: Token) -> ParseResult<Token<'a>> {
+    fn expect_token(&mut self, tok: Token<'i>) -> ParseResult<Token<'i>> {
         if let Some(next) = self.lexer.next() {
             match next {
                 Ok(actual) => {
-                    if actual != tok {
+                    println!("is same type? {}, {:?}, {:?}", actual.is_same_type(&tok), actual, tok);
+                    println!("is == {}", actual == tok);
+                    if actual.is_same_type(&tok) {
+                        Ok(actual)
+                    } else {
                         Err(ParseError::UnexpectedToken {
                             expected: tok.to_string(),
                             received: actual.to_string().to_owned(),
                         })
-                    } else {
-                        Ok(actual)
                     }
                 },
                 Err(e) => Err(ParseError::LexError(e)),
@@ -195,11 +202,13 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn expect_optional_token<'a>(&'a mut self, tok: &Token<'a>) -> Option<Token<'a>> {
+    fn expect_optional_token(&mut self, tok: &Token<'i>) -> Option<Token<'i>> {
         if let Some(next) = self.lexer.peek() {
             match next {
                 Ok(actual) => {
-                    if *actual == *tok {
+                    println!("is same type? {}, {:?}, {:?}", actual.is_same_type(tok), actual, tok);
+                    println!("is == {}", *actual == *tok);
+                    if actual.is_same_type(tok) {
                         Some(self.lexer.next().unwrap().unwrap())
                     } else {
                         None
@@ -252,7 +261,7 @@ mod tests {
 
     #[test]
     fn it_constructs() {
-        let _ast = AST::new("test");
-        assert!(true);
+        let ast = AST::new("test");
+        assert!(ast.is_ok());
     }
 }

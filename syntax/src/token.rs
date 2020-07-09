@@ -25,9 +25,15 @@ pub enum Token<'a> {
     Comment(usize, usize, usize, &'a str),
 }
 
+use std::mem;
+
 impl<'a> Token<'a> {
     pub fn new() -> Token<'a> {
         Token::Start
+    }
+
+    pub fn is_same_type(&self, other: &Token) -> bool {
+        return mem::discriminant(self) == mem::discriminant(other);
     }
 }
 
@@ -39,8 +45,7 @@ impl<'a> fmt::Display for Token<'a> {
     }
 }
 
-use std::mem;
-use std::cmp::PartialEq;
+use std::cmp::{PartialEq, Eq};
 
 impl<'a> PartialEq for Token<'a> {
     fn eq(&self, other: &Token) -> bool {
@@ -54,6 +59,8 @@ impl<'a> PartialEq for Token<'a> {
         }
     }
 }
+
+impl<'a> Eq for Token<'a> {}
 
 #[cfg(test)]
 mod tests {

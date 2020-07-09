@@ -25,7 +25,7 @@ mod tests {
     use std::rc::Rc;
 
     #[test]
-    fn it_handles_lexing_error() {
+    fn it_handles_empty_document() {
         println!("parsing error");
         let res = parse("");
         assert!(res.is_err());
@@ -43,6 +43,7 @@ mod tests {
   someIds: [Int]!
 }"#;
         let res = parse(input);
+        println!("res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(),
             Document {
@@ -173,6 +174,7 @@ type Obj {
   """This is the name of the object"""
   name: String
 }"#;
+        println!("input: {}!!!!", input);
         let res = parse(input);
         println!("res! {:?}", res);
         assert!(res.is_ok());

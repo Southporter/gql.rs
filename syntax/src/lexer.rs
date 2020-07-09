@@ -51,7 +51,7 @@ impl<'a> Lexer<'a> {
         self.position += n;
         let new_pos = self.position - 1;
         self.col += n;
-        self.input.position(|(i, _)| { println!("Advance N: {} of {}", i, n); i == new_pos });
+        self.input.position(|(i, _)| i == new_pos);
     }
 
     fn advance_to(&mut self, pos: usize) {
@@ -64,7 +64,7 @@ impl<'a> Lexer<'a> {
 
     fn get_next_token(&mut self) -> LexerItem<'a> {
         if let Some((index, next)) = self.input.peek() {
-            println!("Next: {}, index: {}", next, index);
+            // println!("Next: {}, index: {}", next, index);
             match next {
                 '!' => {
                     let tok = Ok(Token::Bang(self.position, self.line, self.col));
@@ -150,7 +150,7 @@ impl<'a> Lexer<'a> {
                             Some(_) => {
                                 match locations.get(1) {
                                     Some((start_off, end_off)) => {
-                                        match self.input.position(|(i, _)| i == init_pos + end_off + 3) {
+                                        match self.input.position(|(i, _)| i == init_pos + end_off + 2) {
                                             Some(pos) => self.position = pos,
                                             None => ()
                                         }
@@ -168,7 +168,7 @@ impl<'a> Lexer<'a> {
                             Some(_) => {
                                 match locations.get(1) {
                                     Some((start_off, end_off)) => {
-                                        println!("Single: init: {}, end: {}", init_pos, end_off);
+                                        // println!("Single: init: {}, end: {}", init_pos, end_off);
                                         let cur_col = self.col;
                                         match self.input.position(|(i, _)| i == end_off) {
                                             Some(pos) => {
@@ -210,20 +210,15 @@ impl<'a> Lexer<'a> {
                         static ref FLOAT: Regex = Regex::new(r#"-?[0-9]+\.[0-9]+"#).unwrap();
                         static ref INT: Regex = Regex::new(r#"-?[0-9]+"#).unwrap();
                     }
-                    println!("found number");
                     if FLOAT.is_match_at(self.raw, *index) {
                         let init_pos = *index;
-                        println!("found float at {}", init_pos);
                         let mut locations = FLOAT.capture_locations();
                         match FLOAT.captures_read_at(&mut locations, self.raw, init_pos) {
                             Some(_) => {
-                                println!("float locations: {:?}, {:?}", locations, locations.get(1));
                                 match locations.get(0) {
                                     Some((start, end)) => {
-                                        println!("Start and end of float: {} - {}", start, end);
                                         let cur_col = self.col;
                                         let substr = self.raw.get(start..end).unwrap();
-                                        println!("Float as string: {}", substr);
                                         match substr.parse::<f64>() {
                                             Ok(f) => {
                                                 self.advance_to(end);
@@ -239,16 +234,12 @@ impl<'a> Lexer<'a> {
                         }
                     } else if INT.is_match_at(self.raw, *index) {
                         let init_pos = *index;
-                        println!("found int at {}", init_pos);
                         let mut locations = INT.capture_locations();
                         match INT.captures_read_at(&mut locations, self.raw, init_pos) {
                             Some(_) => {
-                                println!("found int at {}", init_pos);
                                 match locations.get(0) {
                                     Some((start, end)) => {
-                                        println!("Start and end of int: {} - {}", start, end);
                                         let substr = self.raw.get(start..end).unwrap();
-                                        println!("Integer as string: {}", substr);
                                         match substr.parse::<i64>() {
                                             Ok(i) => {
                                                 let tok = Token::Int(self.position, self.line, self.col, i);
@@ -308,9 +299,11 @@ impl<'a> Iterator for Lexer<'a> {
             Some(Ok(Token::Start))
         } else if let Some(_) = self.input.peek() {
             let tok = self.get_next_token();
+            println!("Next Token: {:?}", tok);
+            println!("Next char: {:?}", self.input.peek());
             Some(tok)
         } else {
-            println!("Found a None in the string: {}", self.ended);
+            println!("Found a None in the string: Ending? {}", self.ended);
             if !self.ended {
                 self.ended = true;
                 Some(Ok(Token::End))
