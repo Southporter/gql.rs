@@ -196,7 +196,7 @@ impl<'a> Lexer<'a> {
                     let init_pos = *index;
                     let mut end_pos = 0;
                     while let Some((_, c)) = self.input.peek() {
-                        if c.is_alphanumeric() {
+                        if c.is_alphanumeric() || *c == '_' {
                             self.input.next();
                             end_pos += 1;
                         } else {
@@ -573,12 +573,13 @@ text""""#);
 
     #[test]
     fn lex_name() {
-        println!("Testing name");
-        let text = tokenize("name");
+        println!("Testing names");
+        let text = tokenize("name\nname_with_underscore");
         assert!(text.is_ok());
         assert_eq!(text.unwrap(), vec![
             Token::Start,
             Token::Name(0, 1, 1, "name"),
+            Token::Name(5, 2, 1, "name_with_underscore"),
             Token::End,
         ]);
     }

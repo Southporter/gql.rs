@@ -163,7 +163,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
     fn parses_documentation() {
         println!("parsing an object");
         let input = r#"
@@ -229,6 +228,50 @@ type Obj {
         assert_eq!(res.unwrap(),
             Document {
                 definitions: vec![
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Enum(
+                                EnumTypeDefinitionNode {
+                                    description: None,
+                                    name: NameNode {
+                                        value: String::from("VEHICLE_TYPE")
+                                    },
+                                    values: vec![
+                                        EnumValueDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("SEDAN")
+                                            }
+                                        },
+                                        EnumValueDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("SUV")
+                                            }
+                                        },
+                                        EnumValueDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("COMPACT")
+                                            }
+                                        },
+                                        EnumValueDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("TRUCK")
+                                            }
+                                        },
+                                        EnumValueDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("HYBRID")
+                                            }
+                                        },
+                                    ]
+                                }
+                            )
+                        )
+                    )
                 ]
             }
         );

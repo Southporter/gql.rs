@@ -77,7 +77,7 @@ impl<'i> AST<'i> {
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
-                "type" => Ok(DefinitionNode::TypeSystem(
+                "type" | "enum" => Ok(DefinitionNode::TypeSystem(
                     TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?
                     )
@@ -102,6 +102,11 @@ impl<'i> AST<'i> {
                         self.parse_object_type(description)?
                     )
                 ),
+                "enum" => Ok(
+                    TypeDefinitionNode::Enum(
+                        self.parse_enum_type(description)?
+                    )
+                ),
                 _ => Err(ParseError::BadValue),
             }
         } else {
@@ -123,6 +128,12 @@ impl<'i> AST<'i> {
         } else {
             Err(self.parse_error(String::from("Token::Name"), name_tok))
         }
+    }
+
+    fn parse_enum_type(&mut self, description: Description) -> ParseResult<EnumTypeDefinitionNode> {
+        let name_tok = self.expect_token(Token::Name(0, 0, 0, "enum"))?;
+        let values = self.parse_enum_values()?;
+        Ok(EnumTypeDefinitionNode::new(name_tok, description, values)?)
     }
 
     fn parse_fields(&mut self) -> ParseResult<Vec<FieldDefinitionNode>> {
@@ -165,6 +176,20 @@ impl<'i> AST<'i> {
             );
         }
         Ok(field_type)
+    }
+
+    fn parse_enum_values(&mut self) -> ParseResult<Vec<EnumValueDefinitionNode>> {
+        let mut values: Vec<EnumValueDefinitionNode> = Vec::new();
+        self.expect_token(Token::OpenBrace(0, 0, 0))?;
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(0, 0, 0)) {
+                break;
+            }
+            let description = self.parse_description()?;
+            let name = self.expect_token(Token::Name(0, 0, 0, ""))?;
+            values.push(EnumValueDefinitionNode::new(name, description)?);
+        }
+        Ok(values)
     }
 
     fn parse_error(self: &mut Self, expected: String, received: Token) -> ParseError {

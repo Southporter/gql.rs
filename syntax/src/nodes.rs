@@ -1,5 +1,5 @@
 use crate::token::Token;
-use crate::error::ParseError;
+use crate::error::{ParseError, ParseResult};
 use std::rc::Rc;
 
 
@@ -103,6 +103,22 @@ impl FieldDefinitionNode {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct EnumValueDefinitionNode {
+    pub description: Description,
+    pub name: NameNode,
+    // directives: Option<Vec<DirectiveDefinitionNode>>
+}
+
+impl EnumValueDefinitionNode {
+    pub fn new(name: Token, description: Description) -> ParseResult<EnumValueDefinitionNode> {
+        Ok(EnumValueDefinitionNode {
+            description,
+            name: NameNode::new(name)?,
+        })
+    }
+}
+
 // struct Location<'a> {
 //     start: usize,
 //     end: usize,
@@ -183,12 +199,30 @@ impl ObjectTypeDefinitionNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct EnumTypeDefinitionNode {
+    pub description: Description,
+    pub name: NameNode,
+    // directives: Vec<DirectiveDefinitionNode>,
+    pub values: Vec<EnumValueDefinitionNode>
+}
+
+impl EnumTypeDefinitionNode {
+    pub fn new(tok: Token, description: Description, values: Vec<EnumValueDefinitionNode>) -> Result<EnumTypeDefinitionNode, ParseError> {
+        Ok(EnumTypeDefinitionNode {
+            description,
+            name: NameNode::new(tok)?,
+            values,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum TypeDefinitionNode {
     Scalar(ScalarTypeDefinitionNode),
     Object(ObjectTypeDefinitionNode),
     // Interface(InterfaceTypeDefinitionNode)
     // Union(UnionTypeDefinitionNode)
-    // Enum(EnumTypeDefinitionNode)
+    Enum(EnumTypeDefinitionNode)
     // Input(InputObjectTypeDefinitionNode)
 }
 
