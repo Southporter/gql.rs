@@ -142,6 +142,7 @@ impl<'i> AST<'i> {
         println!("parsing field description");
         let description = self.parse_description()?;
         println!("Got field description: {:?}", description);
+        println!("Input after, {:?}", self.lexer.peek());
         let name = self.expect_token(Token::Name(0,0,0,""))?;
         println!("Got Name");
         self.expect_token(Token::Colon(0,0,0))?;

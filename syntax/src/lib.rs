@@ -174,9 +174,7 @@ type Obj {
   """This is the name of the object"""
   name: String
 }"#;
-        println!("input: {}!!!!", input);
         let res = parse(input);
-        println!("res! {:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), Document {
             definitions: vec![

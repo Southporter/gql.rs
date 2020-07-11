@@ -64,7 +64,6 @@ impl<'a> Lexer<'a> {
 
     fn get_next_token(&mut self) -> LexerItem<'a> {
         if let Some((index, next)) = self.input.peek() {
-            // println!("Next: {}, index: {}", next, index);
             match next {
                 '!' => {
                     let tok = Ok(Token::Bang(self.position, self.line, self.col));
@@ -150,11 +149,18 @@ impl<'a> Lexer<'a> {
                             Some(_) => {
                                 match locations.get(1) {
                                     Some((start_off, end_off)) => {
-                                        match self.input.position(|(i, _)| i == init_pos + end_off + 2) {
+                                        let (start, end) = locations.get(0).unwrap();
+                                        match self.input.position(|(i, _)| i == end) {
                                             Some(pos) => self.position = pos,
                                             None => ()
                                         }
-                                        Ok(Token::BlockStr(init_pos, self.line, self.col, self.raw.get(start_off..end_off).unwrap()))
+                                        let tok = Token::BlockStr(start, self.line, self.col, self.raw.get(start_off..end_off).unwrap());
+
+                                        let substr = self.raw.get(start..end).unwrap();
+                                        let newlines = substr.lines().count();
+                                        self.line += newlines;
+                                        Ok(tok)
+
                                     },
                                     None => Err(LexErrorKind::UnmatchQuote { line: self.line, col: self.col + 1 }),
                                 }
@@ -168,7 +174,6 @@ impl<'a> Lexer<'a> {
                             Some(_) => {
                                 match locations.get(1) {
                                     Some((start_off, end_off)) => {
-                                        // println!("Single: init: {}, end: {}", init_pos, end_off);
                                         let cur_col = self.col;
                                         match self.input.position(|(i, _)| i == end_off) {
                                             Some(pos) => {
@@ -720,20 +725,58 @@ text""""#);
     #[test]
     fn handles_text_after_strings() {
         let strings = tokenize(r#"
-"""This is a block string"""
-name,
-"And a single string"
-value,
+"""
+This is a generic object comment
+They can be multiple lines
+"""
+type Obj {
+  "This is the name of the object"
+  name: String
+}
 "#);
         println!("Strings: {:?}", strings);
         assert!(strings.is_ok());
         assert_eq!(strings.unwrap(), vec![
             Token::Start,
-            Token::BlockStr(1, 2, 1, "This is a block string"),
-            Token::Name(30, 3, 1, "name"),
-            Token::Str(36, 4, 1, "And a single string"),
-            Token::Name(58, 5, 1, "value"),
+            Token::BlockStr(1, 2, 1, r#"
+This is a generic object comment
+They can be multiple lines
+"#),
+            Token::Name(70, 6, 1, "type"),
+            Token::Name(75, 6, 6, "Obj"),
+            Token::OpenBrace(79, 6, 10),
+            Token::Str(83, 7, 3, "This is the name of the object"),
+            Token::Name(108, 8, 3, "name"),
+            Token::Colon(112, 8, 7),
+            Token::Name(114, 8, 9, "String"),
+            Token::CloseBrace(121, 9, 1),
             Token::End,
         ]);
+    }
+
+    #[test]
+    fn handles_multiple_block_strings() {
+        let strings = tokenize(r#"
+"""
+This is a multiline string
+"""
+name
+"""Followed by a single line"""
+id
+"""
+And a final multiline string
+"""
+"#);
+        assert!(strings.is_ok());
+        assert_eq!(strings.unwrap(), vec![
+            Token::Start,
+            Token::BlockStr(1, 2, 1, "\nThis is a multiline string\n"),
+            Token::Name(36, 5, 1, "name"),
+            Token::BlockStr(41, 6, 1, "Followed by a single line"),
+            Token::Name(73, 7, 1, "id"),
+            Token::BlockStr(76, 8, 1, "\nAnd a final multiline string\n"),
+            Token::End,
+        ])
+
     }
 }
