@@ -44,26 +44,6 @@ impl StringValueNode {
     }
 }
 
-pub type Description = Option<StringValueNode>;
-
-// #[derive(Debug)]
-// enum ValueNode {
-//     String(StringValueNode),
-// }
-
-#[derive(Debug, PartialEq)]
-pub struct NamedTypeNode {
-    pub name: NameNode
-}
-
-impl NamedTypeNode {
-    pub fn new(tok: Token) -> Result<NamedTypeNode, ParseError> {
-        Ok(NamedTypeNode {
-            name: NameNode::new(tok)?,
-        })
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct ListTypeNode {
     pub list_type: Rc<TypeNode>
@@ -84,11 +64,48 @@ pub enum TypeNode {
     NonNull(Rc<TypeNode>),
 }
 
+// #[derive(Debug, PartialEq)]
+// pub enum ValueNode {
+//     Variable(VariableValueNode),
+//     Int(IntValueNode)
+// }
+
+
+#[derive(Debug, PartialEq)]
+pub struct InputValueDefinitionNode {
+    pub description: Description,
+    pub name: NameNode,
+    pub input_type: TypeNode,
+    // pub default_value: ValueNode,
+    // pub directives: Directives
+}
+
+pub type Description = Option<StringValueNode>;
+pub type Arguments = Option<Vec<InputValueDefinitionNode>>;
+
+// #[derive(Debug)]
+// enum ValueNode {
+//     String(StringValueNode),
+// }
+
+#[derive(Debug, PartialEq)]
+pub struct NamedTypeNode {
+    pub name: NameNode
+}
+
+impl NamedTypeNode {
+    pub fn new(tok: Token) -> Result<NamedTypeNode, ParseError> {
+        Ok(NamedTypeNode {
+            name: NameNode::new(tok)?,
+        })
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct FieldDefinitionNode {
     pub description: Description,
     pub name: NameNode,
-    // arguments: Option<Vec<InputValueDefinitionNode>
+    pub arguments: Arguments,
     pub field_type: TypeNode,
     // directives: Vec<DirectiveDefinitionNode>,
 }
@@ -98,6 +115,7 @@ impl FieldDefinitionNode {
         Ok(FieldDefinitionNode {
             description,
             name: NameNode::new(name)?,
+            arguments: None,
             field_type,
         })
     }

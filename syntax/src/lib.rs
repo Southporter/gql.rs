@@ -41,6 +41,7 @@ mod tests {
   strs: [String]
   refIds: [Int!]!
   someIds: [Int]!
+  arg(arg1: Int = 42, arg2: Bool): Bool
 }"#;
         let res = parse(input);
         println!("res: {:?}", res);
@@ -62,6 +63,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("name")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::Named(
                                                             NamedTypeNode {
                                                                 name: NameNode {
@@ -76,6 +78,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("id")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::NonNull(
                                                             Rc::new(
                                                                 TypeNode::Named(
@@ -94,6 +97,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("strs")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::List(
                                                 ListTypeNode {
                                                     list_type: Rc::new(
@@ -113,6 +117,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("refIds")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::NonNull(
                                                 Rc::new(TypeNode::List(
                                                     ListTypeNode::new(
@@ -136,6 +141,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("someIds")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::NonNull(
                                                 Rc::new(
                                                     TypeNode::List(
@@ -150,6 +156,20 @@ mod tests {
                                                         )
                                                     )
                                                 )
+                                            )
+                                        },
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("arg")
+                                            },
+                                            arguments: None,
+                                            field_type: TypeNode::Named(
+                                                NamedTypeNode {
+                                                    name: NameNode {
+                                                        value: String::from("Int")
+                                                    }
+                                                }
                                             )
                                         },
                                     ],
@@ -196,6 +216,7 @@ type Obj {
                                         name: NameNode {
                                             value: String::from("name")
                                         },
+                                        arguments: None,
                                         field_type: TypeNode::Named(
                                             NamedTypeNode {
                                                 name: NameNode {
@@ -212,6 +233,7 @@ type Obj {
             ]
         });
     }
+
 
     #[test]
     fn it_handles_enums() {
