@@ -74,7 +74,6 @@ impl<'i> AST<'i> {
 
     fn parse_definition(&mut self) -> ParseResult<DefinitionNode> {
         let description = self.parse_description()?;
-        println!("Got description: {:?}", description);
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
@@ -139,16 +138,10 @@ impl<'i> AST<'i> {
     }
 
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
-        println!("parsing field description");
         let description = self.parse_description()?;
-        println!("Got field description: {:?}", description);
-        println!("Input after, {:?}", self.lexer.peek());
         let name = self.expect_token(Token::Name(0,0,0,""))?;
-        println!("Got Name");
         self.expect_token(Token::Colon(0,0,0))?;
-        println!("Got Colon");
         let field_type = self.parse_field_type()?;
-        println!("Got Fieldtype");
         FieldDefinitionNode::new(name, field_type, description)
     }
 
@@ -185,8 +178,6 @@ impl<'i> AST<'i> {
         if let Some(next) = self.lexer.next() {
             match next {
                 Ok(actual) => {
-                    println!("is same type? {}, {:?}, {:?}", actual.is_same_type(&tok), actual, tok);
-                    println!("is == {}", actual == tok);
                     if actual.is_same_type(&tok) {
                         Ok(actual)
                     } else {
@@ -207,8 +198,6 @@ impl<'i> AST<'i> {
         if let Some(next) = self.lexer.peek() {
             match next {
                 Ok(actual) => {
-                    println!("is same type? {}, {:?}, {:?}", actual.is_same_type(tok), actual, tok);
-                    println!("is == {}", *actual == *tok);
                     if actual.is_same_type(tok) {
                         Some(self.lexer.next().unwrap().unwrap())
                     } else {
