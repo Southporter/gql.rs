@@ -24,16 +24,23 @@ impl NameNode {
 
 #[derive(Debug, PartialEq)]
 pub struct StringValueNode {
-    pub value: String
+    pub value: String,
+    block: bool,
 }
 
 impl StringValueNode {
     pub fn new(token: Token) -> Result<StringValueNode, ParseError> {
         match token {
-            Token::Str(_, _, _, val) |
+            Token::Str(_, _, _, val) => Ok(
+                StringValueNode {
+                    value: val.to_owned(),
+                    block: false,
+                }
+            ),
             Token::BlockStr(_, _, _, val) => Ok(
                 StringValueNode {
                     value: val.to_owned(),
+                    block: true,
                 }
             ),
             _ => Err(ParseError::UnexpectedToken {
@@ -41,6 +48,19 @@ impl StringValueNode {
                 received: token.to_string().to_owned()
             })
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct NamedTypeNode {
+    pub name: NameNode
+}
+
+impl NamedTypeNode {
+    pub fn new(tok: Token) -> Result<NamedTypeNode, ParseError> {
+        Ok(NamedTypeNode {
+            name: NameNode::new(tok)?,
+        })
     }
 }
 
@@ -64,11 +84,67 @@ pub enum TypeNode {
     NonNull(Rc<TypeNode>),
 }
 
-// #[derive(Debug, PartialEq)]
-// pub enum ValueNode {
-//     Variable(VariableValueNode),
-//     Int(IntValueNode)
-// }
+#[derive(Debug, PartialEq)]
+pub struct VariableNode {
+    pub name: NameNode
+}
+
+impl VariableNode {
+    pub fn new(tok: Token) -> ParseResult<VariableNode> {
+        Ok(VariableNode {
+            name: NameNode::new(tok)?,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct IntValueNode {
+    pub value: i64,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FloatValueNode {
+    pub value: f64,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BooleanValueNode {
+    pub value: bool,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct EnumValueNode {
+    pub value: String,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ListValueNode {
+    pub value: Vec<ValueNode>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ObjectFieldNode {
+    pub name: NameNode,
+    pub value: ValueNode,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ObjectValueNode {
+    pub fields: Vec<ObjectFieldNode>
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ValueNode {
+    Variable(VariableNode),
+    Int(IntValueNode),
+    Float(FloatValueNode),
+    Str(StringValueNode),
+    Bool(BooleanValueNode),
+    Null,
+    Enum(EnumValueNode),
+    List(ListValueNode),
+    Object(ObjectValueNode),
+}
 
 
 #[derive(Debug, PartialEq)]
@@ -76,46 +152,45 @@ pub struct InputValueDefinitionNode {
     pub description: Description,
     pub name: NameNode,
     pub input_type: TypeNode,
-    // pub default_value: ValueNode,
+    pub default_value: Option<ValueNode>,
     // pub directives: Directives
 }
 
+impl InputValueDefinitionNode {
+    pub fn new(name: Token, input_type: TypeNode, description: Description) -> ParseResult<InputValueDefinitionNode> {
+        Ok(InputValueDefinitionNode {
+            description,
+            name: NameNode::new(name)?,
+            input_type,
+            default_value: None,
+        })
+    }
+}
+
 pub type Description = Option<StringValueNode>;
-pub type Arguments = Option<Vec<InputValueDefinitionNode>>;
+pub type Arguments = Vec<InputValueDefinitionNode>;
 
 // #[derive(Debug)]
 // enum ValueNode {
 //     String(StringValueNode),
 // }
 
-#[derive(Debug, PartialEq)]
-pub struct NamedTypeNode {
-    pub name: NameNode
-}
-
-impl NamedTypeNode {
-    pub fn new(tok: Token) -> Result<NamedTypeNode, ParseError> {
-        Ok(NamedTypeNode {
-            name: NameNode::new(tok)?,
-        })
-    }
-}
 
 #[derive(Debug, PartialEq)]
 pub struct FieldDefinitionNode {
     pub description: Description,
     pub name: NameNode,
-    pub arguments: Arguments,
+    pub arguments: Option<Arguments>,
     pub field_type: TypeNode,
     // directives: Vec<DirectiveDefinitionNode>,
 }
 
 impl FieldDefinitionNode {
-    pub fn new(name: Token, field_type: TypeNode, description: Description) -> Result<FieldDefinitionNode, ParseError> {
+    pub fn new(name: Token, field_type: TypeNode, description: Description, arguments: Option<Arguments>) -> ParseResult<FieldDefinitionNode> {
         Ok(FieldDefinitionNode {
             description,
             name: NameNode::new(name)?,
-            arguments: None,
+            arguments: arguments,
             field_type,
         })
     }

@@ -37,21 +37,40 @@ impl<'i> AST<'i> {
 
     fn parse_description(&mut self) -> ParseResult<Description> {
         match self.unwrap_peeked_token()? {
-            Token::BlockStr(_, _, _, value) => {
-                let res = Some(StringValueNode {
-                    value: String::from(*value)
-                });
-                self.unwrap_next_token()?;
-                Ok(res)
-            },
-            Token::Str(_, _, _, value) => {
-                let res = Some(StringValueNode {
-                    value: String::from(*value),
-                });
-                self.unwrap_next_token()?;
-                Ok(res)
+            Token::BlockStr(_, _, _, _) |
+            Token::Str(_, _, _, _) => {
+                let tok = self.unwrap_next_token()?;
+                Ok(Some(StringValueNode::new(tok)?))
             },
             _ => Ok(None),
+        }
+    }
+
+    fn parse_argument(&mut self) -> ParseResult<InputValueDefinitionNode> {
+        let description = self.parse_description()?;
+        let name_tok = self.unwrap_next_token()?;
+        let type_node = self.parse_field_type()?;
+        // let default_value = self.parse_
+        InputValueDefinitionNode::new(name_tok, type_node, description)
+    }
+
+    fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
+        match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
+            Some(_) => {
+                self.unwrap_next_token()?;  // Consume token
+                if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
+                    return Err(ParseError::ArgumentEmpty)
+                }
+                let mut args: Arguments = Vec::new();
+                loop {
+                    args.push(self.parse_argument()?);
+                    if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
+                        break;
+                    }
+                }
+                Ok(None)
+            },
+            None => Ok(None)
         }
     }
 
@@ -151,9 +170,10 @@ impl<'i> AST<'i> {
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
         let description = self.parse_description()?;
         let name = self.expect_token(Token::Name(0,0,0,""))?;
+        let arguments = self.parse_arguments()?;
         self.expect_token(Token::Colon(0,0,0))?;
         let field_type = self.parse_field_type()?;
-        FieldDefinitionNode::new(name, field_type, description)
+        FieldDefinitionNode::new(name, field_type, description, arguments)
     }
 
     fn parse_field_type(&mut self) -> ParseResult<TypeNode> {

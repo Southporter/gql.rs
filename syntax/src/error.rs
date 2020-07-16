@@ -4,6 +4,7 @@ use crate::lexer::LexErrorKind;
 pub enum ParseError {
     BadValue,
     DocumentEmpty,
+    ArgumentEmpty,
     EOF,
     LexError(LexErrorKind),
     UnexpectedToken { expected: String, received: String }
