@@ -50,8 +50,8 @@ impl<'i> AST<'i> {
         let description = self.parse_description()?;
         let name_tok = self.unwrap_next_token()?;
         let type_node = self.parse_field_type()?;
-        // let default_value = self.parse_
-        InputValueDefinitionNode::new(name_tok, type_node, description)
+        let default_value = self.parse_value()?;
+        InputValueDefinitionNode::new(name_tok, type_node, description, default_value)
     }
 
     fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
@@ -212,7 +212,55 @@ impl<'i> AST<'i> {
         Ok(values)
     }
 
-    fn parse_error(self: &mut Self, expected: String, received: Token) -> ParseError {
+    fn parse_value(&mut self) -> ParseResult<Option<ValueNode>> {
+        match self.expect_optional_token(&Token::Equals(0,0,0)) {
+            Some(_) => {
+                let tok = self.unwrap_peeked_token()?;
+                match *tok {
+                    Token::Name(_, _, _, value) => {
+                        self.unwrap_next_token()?;
+                        match value {
+                            "true" => Ok(Some(ValueNode::Bool(BooleanValueNode { value: true }))),
+                            "false" => Ok(Some(ValueNode::Bool(BooleanValueNode { value: false }))),
+                            "null" => Ok(Some(ValueNode::Null)),
+                            _ => Ok(Some(ValueNode::Enum(EnumValueNode { value: value.to_owned() })))
+                        }
+                    },
+                    Token::Int(_, _, _, value) => {
+                        self.unwrap_next_token()?;
+                        Ok(Some(ValueNode::Int(IntValueNode { value })))
+                    },
+                    Token::Float(_, _, _, value) => {
+                        self.unwrap_next_token()?;
+                        Ok(Some(ValueNode::Float(FloatValueNode { value })))
+                    },
+                    Token::Str(_, _, _, _) | Token::BlockStr(_, _, _, _) => {
+                        let str_tok = self.unwrap_next_token()?;
+                        Ok(Some(ValueNode::Str(StringValueNode::new(str_tok)?)))
+                    },
+                    Token::Dollar(_, _, _) => {
+                        // TODO Implement self.parse_variable
+                        // Ok(self.parse_variable()?)
+                        Ok(None)
+                    },
+                    Token::OpenSquare(_,_,_) => {
+                        // TODO Implement self.parse_list()
+                        // self.parse_list()?
+                        Ok(None)
+                    },
+                    Token::OpenBrace(_, _, _) => {
+                        // TODO Implement self.parse_object()
+                        // self.parse_object()?
+                        Ok(None)
+                    }
+                    _ => Ok(None)
+                }
+            },
+            None => Ok(None)
+        }
+    }
+
+    fn parse_error(&mut self, expected: String, received: Token) -> ParseError {
         ParseError::UnexpectedToken {
             expected,
             received: received.to_string().to_owned(),

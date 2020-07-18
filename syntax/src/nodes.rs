@@ -157,12 +157,12 @@ pub struct InputValueDefinitionNode {
 }
 
 impl InputValueDefinitionNode {
-    pub fn new(name: Token, input_type: TypeNode, description: Description) -> ParseResult<InputValueDefinitionNode> {
+    pub fn new(name: Token, input_type: TypeNode, description: Description, default_value: Option<ValueNode>) -> ParseResult<InputValueDefinitionNode> {
         Ok(InputValueDefinitionNode {
             description,
             name: NameNode::new(name)?,
             input_type,
-            default_value: None,
+            default_value,
         })
     }
 }

@@ -95,6 +95,11 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     tok
                 },
+                '=' => {
+                    let tok = Ok(Token::Equals(self.position, self.line, self.col));
+                    self.advance();
+                    tok
+                }
                 '{' => {
                     let tok = Ok(Token::OpenBrace(self.position, self.line, self.col));
                     self.advance();
@@ -421,6 +426,18 @@ mod tests {
         assert_eq!(one.unwrap(), vec![
             Token::Start,
             Token::Colon(0, 1, 1),
+            Token::End,
+        ]);
+    }
+
+    #[test]
+    fn lex_equals() {
+        println!("Testing colon");
+        let one = tokenize("=");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap(), vec![
+            Token::Start,
+            Token::Equals(0, 1, 1),
             Token::End,
         ]);
     }
