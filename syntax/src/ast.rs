@@ -159,6 +159,11 @@ impl<'i> AST<'i> {
 
     fn parse_enum_type(&mut self, description: Description) -> ParseResult<EnumTypeDefinitionNode> {
         let name_tok = self.expect_token(Token::Name(0, 0, 0, "enum"))?;
+        if name_tok == Token::Name(0,0,0,"true") ||
+           name_tok == Token::Name(0,0,0,"false") ||
+           name_tok == Token::Name(0,0,0, "null") {
+            return Err(ParseError::BadValue)
+        }
         let values = self.parse_enum_values()?;
         Ok(EnumTypeDefinitionNode::new(name_tok, description, values)?)
     }
