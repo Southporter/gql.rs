@@ -47,28 +47,36 @@ impl<'i> AST<'i> {
     }
 
     fn parse_argument(&mut self) -> ParseResult<InputValueDefinitionNode> {
+        println!("parsing argument");
         let description = self.parse_description()?;
+        println!("arg description {:?}", description);
         let name_tok = self.unwrap_next_token()?;
+        self.expect_token(Token::Colon(0,0,0))?;
+        println!("arg name {:?}", name_tok);
         let type_node = self.parse_field_type()?;
+        println!("arg type {:?}", type_node);
         let default_value = self.parse_value()?;
+        println!("arg default value {:?}", default_value);
         InputValueDefinitionNode::new(name_tok, type_node, description, default_value)
     }
 
     fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
         match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
             Some(_) => {
-                self.unwrap_next_token()?;  // Consume token
+                // self.unwrap_next_token()?;  // Consume token
                 if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
                     return Err(ParseError::ArgumentEmpty)
                 }
                 let mut args: Arguments = Vec::new();
                 loop {
+                    println!("start of loop");
                     args.push(self.parse_argument()?);
                     if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
+                        println!("end of loop");
                         break;
                     }
                 }
-                Ok(None)
+                Ok(Some(args))
             },
             None => Ok(None)
         }
@@ -171,6 +179,7 @@ impl<'i> AST<'i> {
         let description = self.parse_description()?;
         let name = self.expect_token(Token::Name(0,0,0,""))?;
         let arguments = self.parse_arguments()?;
+        println!("arguments, {:?}", arguments);
         self.expect_token(Token::Colon(0,0,0))?;
         let field_type = self.parse_field_type()?;
         FieldDefinitionNode::new(name, field_type, description, arguments)

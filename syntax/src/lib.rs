@@ -181,7 +181,7 @@ mod tests {
                                             field_type: TypeNode::Named(
                                                 NamedTypeNode {
                                                     name: NameNode {
-                                                        value: String::from("Int")
+                                                        value: String::from("Bool")
                                                     }
                                                 }
                                             )
