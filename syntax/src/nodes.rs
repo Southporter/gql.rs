@@ -29,7 +29,7 @@ pub struct StringValueNode {
 }
 
 impl StringValueNode {
-    pub fn new(token: Token) -> Result<StringValueNode, ParseError> {
+    pub fn new(token: Token) -> ParseResult<StringValueNode> {
         match token {
             Token::Str(_, _, _, val) => Ok(
                 StringValueNode {
@@ -119,7 +119,7 @@ pub struct EnumValueNode {
 
 #[derive(Debug, PartialEq)]
 pub struct ListValueNode {
-    pub value: Vec<ValueNode>,
+    pub values: Vec<ValueNode>,
 }
 
 #[derive(Debug, PartialEq)]
