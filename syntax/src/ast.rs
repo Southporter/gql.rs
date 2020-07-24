@@ -37,21 +37,40 @@ impl<'i> AST<'i> {
 
     fn parse_description(&mut self) -> ParseResult<Description> {
         match self.unwrap_peeked_token()? {
-            Token::BlockStr(_, _, _, value) => {
-                let res = Some(StringValueNode {
-                    value: String::from(*value)
-                });
-                self.unwrap_next_token()?;
-                Ok(res)
-            },
-            Token::Str(_, _, _, value) => {
-                let res = Some(StringValueNode {
-                    value: String::from(*value),
-                });
-                self.unwrap_next_token()?;
-                Ok(res)
+            Token::BlockStr(_, _, _, _) |
+            Token::Str(_, _, _, _) => {
+                let tok = self.unwrap_next_token()?;
+                Ok(Some(StringValueNode::new(tok)?))
             },
             _ => Ok(None),
+        }
+    }
+
+    fn parse_argument(&mut self) -> ParseResult<InputValueDefinitionNode> {
+        let description = self.parse_description()?;
+        let name_tok = self.unwrap_next_token()?;
+        self.expect_token(Token::Colon(0,0,0))?;
+        let type_node = self.parse_field_type()?;
+        let default_value = self.parse_default_value()?;
+        InputValueDefinitionNode::new(name_tok, type_node, description, default_value)
+    }
+
+    fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
+        match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
+            Some(_) => {
+                if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
+                    return Err(ParseError::ArgumentEmpty)
+                }
+                let mut args: Arguments = Vec::new();
+                loop {
+                    args.push(self.parse_argument()?);
+                    if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
+                        break;
+                    }
+                }
+                Ok(Some(args))
+            },
+            None => Ok(None)
         }
     }
 
@@ -132,6 +151,11 @@ impl<'i> AST<'i> {
 
     fn parse_enum_type(&mut self, description: Description) -> ParseResult<EnumTypeDefinitionNode> {
         let name_tok = self.expect_token(Token::Name(0, 0, 0, "enum"))?;
+        if name_tok == Token::Name(0,0,0,"true") ||
+           name_tok == Token::Name(0,0,0,"false") ||
+           name_tok == Token::Name(0,0,0, "null") {
+            return Err(ParseError::BadValue)
+        }
         let values = self.parse_enum_values()?;
         Ok(EnumTypeDefinitionNode::new(name_tok, description, values)?)
     }
@@ -151,9 +175,11 @@ impl<'i> AST<'i> {
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
         let description = self.parse_description()?;
         let name = self.expect_token(Token::Name(0,0,0,""))?;
+        let arguments = self.parse_arguments()?;
+        println!("arguments, {:?}", arguments);
         self.expect_token(Token::Colon(0,0,0))?;
         let field_type = self.parse_field_type()?;
-        FieldDefinitionNode::new(name, field_type, description)
+        FieldDefinitionNode::new(name, field_type, description, arguments)
     }
 
     fn parse_field_type(&mut self) -> ParseResult<TypeNode> {
@@ -192,7 +218,89 @@ impl<'i> AST<'i> {
         Ok(values)
     }
 
-    fn parse_error(self: &mut Self, expected: String, received: Token) -> ParseError {
+    fn parse_default_value(&mut self) -> ParseResult<Option<ValueNode>> {
+        match self.expect_optional_token(&Token::Equals(0,0,0)) {
+            Some(_) => {
+                Ok(Some(self.parse_value()?))
+            },
+            None => Ok(None)
+        }
+    }
+
+    fn parse_value(&mut self) -> ParseResult<ValueNode> {
+        let tok = self.unwrap_peeked_token()?;
+        match *tok {
+            Token::Name(_, _, _, value) => {
+                self.unwrap_next_token()?;
+                match value {
+                    "true" => Ok(ValueNode::Bool(BooleanValueNode { value: true })),
+                    "false" => Ok(ValueNode::Bool(BooleanValueNode { value: false })),
+                    "null" => Ok(ValueNode::Null),
+                    _ => Ok(ValueNode::Enum(EnumValueNode { value: value.to_owned() }))
+                }
+            },
+            Token::Int(_, _, _, value) => {
+                self.unwrap_next_token()?;
+                Ok(ValueNode::Int(IntValueNode { value }))
+            },
+            Token::Float(_, _, _, value) => {
+                self.unwrap_next_token()?;
+                Ok(ValueNode::Float(FloatValueNode { value }))
+            },
+            Token::Str(_, _, _, _) | Token::BlockStr(_, _, _, _) => {
+                let str_tok = self.unwrap_next_token()?;
+                Ok(ValueNode::Str(StringValueNode::new(str_tok)?))
+            },
+            Token::Dollar(_, _, _) => {
+                let variable = self.parse_variable()?;
+                Ok(ValueNode::Variable(variable))
+            },
+            Token::OpenSquare(_,_,_) => {
+                let list_value = self.parse_list_value()?;
+                Ok(ValueNode::List(list_value))
+            },
+            Token::OpenBrace(_, _, _) => {
+                let obj_value = self.parse_object_value()?;
+                Ok(ValueNode::Object(obj_value))
+            }
+            _ => Err(ParseError::UnexpectedToken { expected: String::from("One of (Name, Int, Float, Str, Dollar, OpenSquare, OpenBrace)"), received: String::from("")})
+        }
+    }
+
+    fn parse_list_value(&mut self) -> ParseResult<ListValueNode> {
+        self.expect_token(Token::OpenSquare(0,0,0))?;
+        let mut values: Vec<ValueNode> = Vec::new();
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::CloseSquare(0, 0, 0)) {
+                break;
+            }
+            values.push(self.parse_value()?);
+        }
+        Ok(ListValueNode { values })
+    }
+
+    fn parse_object_value(&mut self) -> ParseResult<ObjectValueNode> {
+        self.expect_token(Token::OpenBrace(0,0,0))?;
+        let mut fields: Vec<ObjectFieldNode> = Vec::new();
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(0,0,0)) {
+                break;
+            }
+            let name = self.unwrap_next_token()?;
+            self.expect_token(Token::Colon(0,0,0))?;
+            let value = self.parse_value()?;
+            fields.push(ObjectFieldNode { name: NameNode::new(name)?, value });
+        }
+        Ok(ObjectValueNode { fields })
+    }
+
+    fn parse_variable(&mut self) -> ParseResult<VariableNode> {
+        self.expect_token(Token::Dollar(0,0,0))?;
+        let name = self.unwrap_next_token()?;
+        Ok(VariableNode { name: NameNode::new(name)? })
+    }
+
+    fn parse_error(&mut self, expected: String, received: Token) -> ParseError {
         ParseError::UnexpectedToken {
             expected,
             received: received.to_string().to_owned(),
@@ -278,5 +386,133 @@ mod tests {
     fn it_constructs() {
         let ast = AST::new("test");
         assert!(ast.is_ok());
+    }
+
+    #[test]
+    fn it_parses_int_value() {
+        let mut ast = AST::new("42").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        println!("IntValue: {:?}", value);
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Int(IntValueNode { value: 42 }));
+    }
+
+    #[test]
+    fn it_parses_float_value() {
+        let mut ast = AST::new("3.1415926").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        println!("FloatValue: {:?}", value);
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Float(FloatValueNode { value: 3.1415926 }));
+    }
+
+    #[test]
+    fn it_parses_block_string_values() {
+        let mut ast = AST::new(r#""""BlockStrValue""""#).unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Str(StringValueNode::new(Token::BlockStr(0,0,0,"BlockStrValue")).unwrap()));
+    }
+
+    #[test]
+    fn it_parses_string_values() {
+        let mut ast = AST::new(r#""StrValue""#).unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Str(StringValueNode::new(Token::Str(0,0,0,"StrValue")).unwrap()));
+    }
+
+    #[test]
+    fn it_parses_bool_values() {
+        let mut ast = AST::new("true, false").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Bool(BooleanValueNode { value: true }));
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Bool(BooleanValueNode { value: false }));
+    }
+
+    #[test]
+    fn it_parses_null_value() {
+        let mut ast = AST::new("null").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Null);
+    }
+
+    #[test]
+    fn it_parses_list_value() {
+        let mut ast = AST::new("[true, false], [[1,2,3],[4,5,6]]").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::List(ListValueNode {
+            values: vec![
+                ValueNode::Bool(BooleanValueNode { value: true }),
+                ValueNode::Bool(BooleanValueNode { value: false }),
+            ]
+        }));
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::List(ListValueNode {
+            values: vec![
+                ValueNode::List(ListValueNode {
+                    values: vec![
+                        ValueNode::Int(IntValueNode { value: 1 }),
+                        ValueNode::Int(IntValueNode { value: 2 }),
+                        ValueNode::Int(IntValueNode { value: 3 }),
+                    ]
+                }),
+                ValueNode::List(ListValueNode {
+                    values: vec![
+                        ValueNode::Int(IntValueNode { value: 4 }),
+                        ValueNode::Int(IntValueNode { value: 5 }),
+                        ValueNode::Int(IntValueNode { value: 6 }),
+                    ]
+                })
+            ]
+        }))
+    }
+
+    #[test]
+    fn it_parses_object_value() {
+        let mut ast = AST::new(r#"{}, { id: 42, name: "Obj"}"#).unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Object(ObjectValueNode {
+            fields: vec![],
+        }));
+
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Object(ObjectValueNode {
+            fields: vec![
+                ObjectFieldNode {
+                    name: NameNode::new(Token::Name(0,0,0,"id")).unwrap(),
+                    value: ValueNode::Int(IntValueNode { value: 42 }),
+                },
+                ObjectFieldNode {
+                    name: NameNode::new(Token::Name(0,0,0,"name")).unwrap(),
+                    value: ValueNode::Str(StringValueNode::new(Token::Str(0,0,0,"Obj")).unwrap()),
+                }
+            ]
+        }))
+    }
+
+    #[test]
+    fn parses_a_variable() {
+        let mut ast = AST::new("$myVariable").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Variable(VariableNode { name: NameNode::new(Token::Name(0,0,0,"myVariable")).unwrap() }));
     }
 }

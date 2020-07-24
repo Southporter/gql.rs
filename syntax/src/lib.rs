@@ -21,6 +21,7 @@ mod tests {
     use super::*;
     // use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode, StringValueNode};
     use crate::nodes::*;
+    use crate::token::Token;
     use crate::error::ParseError;
     use std::rc::Rc;
 
@@ -41,6 +42,7 @@ mod tests {
   strs: [String]
   refIds: [Int!]!
   someIds: [Int]!
+  arg(arg1: Int = 42, arg2: Bool!): Bool
 }"#;
         let res = parse(input);
         println!("res: {:?}", res);
@@ -62,6 +64,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("name")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::Named(
                                                             NamedTypeNode {
                                                                 name: NameNode {
@@ -76,6 +79,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("id")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::NonNull(
                                                             Rc::new(
                                                                 TypeNode::Named(
@@ -94,6 +98,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("strs")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::List(
                                                 ListTypeNode {
                                                     list_type: Rc::new(
@@ -113,6 +118,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("refIds")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::NonNull(
                                                 Rc::new(TypeNode::List(
                                                     ListTypeNode::new(
@@ -136,6 +142,7 @@ mod tests {
                                             name: NameNode {
                                                 value: String::from("someIds")
                                             },
+                                            arguments: None,
                                             field_type: TypeNode::NonNull(
                                                 Rc::new(
                                                     TypeNode::List(
@@ -152,6 +159,33 @@ mod tests {
                                                 )
                                             )
                                         },
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode {
+                                                value: String::from("arg")
+                                            },
+                                            arguments: Some(vec![
+                                                InputValueDefinitionNode {
+                                                    description: None,
+                                                    name: NameNode { value: String::from("arg1") },
+                                                    input_type: TypeNode::Named(NamedTypeNode { name: NameNode { value: String::from("Int") } }),
+                                                    default_value: Some(ValueNode ::Int(IntValueNode { value: 42 })),
+                                                },
+                                                InputValueDefinitionNode {
+                                                    description: None,
+                                                    name: NameNode { value: String::from("arg2") },
+                                                    input_type: TypeNode::NonNull(Rc::new(TypeNode::Named(NamedTypeNode { name: NameNode { value: String::from("Bool") } }))),
+                                                    default_value: None,
+                                                },
+                                            ]),
+                                            field_type: TypeNode::Named(
+                                                NamedTypeNode {
+                                                    name: NameNode {
+                                                        value: String::from("Bool")
+                                                    }
+                                                }
+                                            )
+                                        },
                                     ],
                                 }
                             )
@@ -164,7 +198,7 @@ mod tests {
 
     #[test]
     fn parses_documentation() {
-        println!("parsing an object");
+        println!("parsing documentation");
         let input = r#"
 """
 This is a generic object comment
@@ -182,20 +216,17 @@ type Obj {
                     TypeSystemDefinitionNode::Type(
                         TypeDefinitionNode::Object(
                             ObjectTypeDefinitionNode {
-                                description: Some(StringValueNode {
-                                    value: String::from("\nThis is a generic object comment\nThey can be multiple lines\n")
-                                }),
+                                description: Some(StringValueNode::new(Token::BlockStr(0, 0, 0, "\nThis is a generic object comment\nThey can be multiple lines\n")).unwrap()),
                                 name: NameNode {
                                     value: String::from("Obj")
                                 },
                                 fields: vec![
                                     FieldDefinitionNode {
-                                        description: Some(StringValueNode {
-                                            value: String::from("This is the name of the object")
-                                        }),
+                                        description: Some(StringValueNode::new(Token::BlockStr(0,0,0,"This is the name of the object")).unwrap()),
                                         name: NameNode {
                                             value: String::from("name")
                                         },
+                                        arguments: None,
                                         field_type: TypeNode::Named(
                                             NamedTypeNode {
                                                 name: NameNode {
@@ -212,6 +243,7 @@ type Obj {
             ]
         });
     }
+
 
     #[test]
     fn it_handles_enums() {
