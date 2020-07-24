@@ -46,7 +46,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_argument(&mut self) -> ParseResult<InputValueDefinitionNode> {
+    fn parse_argument_definition(&mut self) -> ParseResult<InputValueDefinitionNode> {
         let description = self.parse_description()?;
         let name_tok = self.unwrap_next_token()?;
         self.expect_token(Token::Colon(0,0,0))?;
@@ -55,15 +55,15 @@ impl<'i> AST<'i> {
         InputValueDefinitionNode::new(name_tok, type_node, description, default_value)
     }
 
-    fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
+    fn parse_arguments_definition(&mut self) -> ParseResult<Option<ArgumentDefinitions>> {
         match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
             Some(_) => {
                 if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
                     return Err(ParseError::ArgumentEmpty)
                 }
-                let mut args: Arguments = Vec::new();
+                let mut args: ArgumentDefinitions = Vec::new();
                 loop {
-                    args.push(self.parse_argument()?);
+                    args.push(self.parse_argument_definition()?);
                     if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
                         break;
                     }
@@ -72,6 +72,34 @@ impl<'i> AST<'i> {
             },
             None => Ok(None)
         }
+    }
+
+    fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
+        match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
+            Some(_) => {
+                // let
+            },
+            None => Ok(None)
+        }
+    }
+
+    fn parse_directive(&mut self) -> ParseResult<DirectiveNode> {
+        self.expect_token(Token::At(0,0,0))?;
+        let name = self.unwrap_next_token()?;
+        let arguments = self.parse_arguments()?;
+        Ok(DirectiveNode::new(name, arguments)?)
+    }
+
+    fn parse_directives(&mut self) -> ParseResult<Vec<DirectiveNode>> {
+        let mut directives: Vec<DirectiveNode> = Vec::new();
+        loop {
+            if let Token::At(_,_,_) = self.unwrap_peeked_token()? {
+                directives.push(self.parse_directive()?);
+            } else {
+                break;
+            }
+        }
+        Ok(directives)
     }
 
     fn parse_definitions(&'i mut self) -> ParseResult<Vec<DefinitionNode>> {
@@ -175,7 +203,7 @@ impl<'i> AST<'i> {
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
         let description = self.parse_description()?;
         let name = self.expect_token(Token::Name(0,0,0,""))?;
-        let arguments = self.parse_arguments()?;
+        let arguments = self.parse_arguments_definition()?;
         println!("arguments, {:?}", arguments);
         self.expect_token(Token::Colon(0,0,0))?;
         let field_type = self.parse_field_type()?;
@@ -514,5 +542,34 @@ mod tests {
         let value = ast.parse_value();
         assert!(value.is_ok());
         assert_eq!(value.unwrap(), ValueNode::Variable(VariableNode { name: NameNode::new(Token::Name(0,0,0,"myVariable")).unwrap() }));
+    }
+
+
+    #[test]
+    fn parses_a_directive() {
+        let mut ast = AST::new("@deprecated").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_directives();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), vec![
+            DirectiveNode {
+                name: NameNode::new(Token::Name(0,0,0,"deprecated")).unwrap(),
+                arguments: None,
+            }
+        ])
+    }
+
+    #[test]
+    fn parses_directive_with_arguments() {
+        let mut ast = AST::new("@include(if: true)").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_directives();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), vec![
+            DirectiveNode {
+                name: NameNode::new(Token::Name(0,0,0,"include")).unwrap(),
+                arguments: Some(vec![]),
+            }
+        ])
     }
 }
