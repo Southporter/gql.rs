@@ -46,7 +46,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_argument(&mut self) -> ParseResult<InputValueDefinitionNode> {
+    fn parse_argument_definition(&mut self) -> ParseResult<InputValueDefinitionNode> {
         let description = self.parse_description()?;
         let name_tok = self.unwrap_next_token()?;
         self.expect_token(Token::Colon(0,0,0))?;
@@ -55,15 +55,15 @@ impl<'i> AST<'i> {
         InputValueDefinitionNode::new(name_tok, type_node, description, default_value)
     }
 
-    fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
+    fn parse_arguments_definition(&mut self) -> ParseResult<Option<ArgumentDefinitions>> {
         match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
             Some(_) => {
                 if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
                     return Err(ParseError::ArgumentEmpty)
                 }
-                let mut args: Arguments = Vec::new();
+                let mut args: ArgumentDefinitions = Vec::new();
                 loop {
-                    args.push(self.parse_argument()?);
+                    args.push(self.parse_argument_definition()?);
                     if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
                         break;
                     }
@@ -72,6 +72,51 @@ impl<'i> AST<'i> {
             },
             None => Ok(None)
         }
+    }
+
+    fn parse_argument(&mut self) -> ParseResult<Argument> {
+        let name = self.unwrap_next_token()?;
+        self.expect_token(Token::Colon(0,0,0))?;
+        let value = self.parse_value()?;
+        Ok(Argument { name: NameNode::new(name)?, value })
+    }
+
+    fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
+        match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
+            Some(_) => {
+                let mut args: Arguments = Vec::new();
+                loop {
+                    if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
+                        if args.is_empty() {
+                            return Err(ParseError::ArgumentEmpty);
+                        }
+                        break;
+                    }
+                    args.push(self.parse_argument()?);
+                }
+                Ok(Some(args))
+            },
+            None => Ok(None)
+        }
+    }
+
+    fn parse_directive(&mut self) -> ParseResult<DirectiveNode> {
+        self.expect_token(Token::At(0,0,0))?;
+        let name = self.unwrap_next_token()?;
+        let arguments = self.parse_arguments()?;
+        Ok(DirectiveNode::new(name, arguments)?)
+    }
+
+    fn parse_directives(&mut self) -> ParseResult<Vec<DirectiveNode>> {
+        let mut directives: Vec<DirectiveNode> = Vec::new();
+        loop {
+            if let Token::At(_,_,_) = self.unwrap_peeked_token()? {
+                directives.push(self.parse_directive()?);
+            } else {
+                break;
+            }
+        }
+        Ok(directives)
     }
 
     fn parse_definitions(&'i mut self) -> ParseResult<Vec<DefinitionNode>> {
@@ -175,7 +220,7 @@ impl<'i> AST<'i> {
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
         let description = self.parse_description()?;
         let name = self.expect_token(Token::Name(0,0,0,""))?;
-        let arguments = self.parse_arguments()?;
+        let arguments = self.parse_arguments_definition()?;
         println!("arguments, {:?}", arguments);
         self.expect_token(Token::Colon(0,0,0))?;
         let field_type = self.parse_field_type()?;
@@ -496,11 +541,11 @@ mod tests {
         assert_eq!(value.unwrap(), ValueNode::Object(ObjectValueNode {
             fields: vec![
                 ObjectFieldNode {
-                    name: NameNode::new(Token::Name(0,0,0,"id")).unwrap(),
+                    name: NameNode::from("id"),
                     value: ValueNode::Int(IntValueNode { value: 42 }),
                 },
                 ObjectFieldNode {
-                    name: NameNode::new(Token::Name(0,0,0,"name")).unwrap(),
+                    name: NameNode::from("name"),
                     value: ValueNode::Str(StringValueNode::new(Token::Str(0,0,0,"Obj")).unwrap()),
                 }
             ]
@@ -513,6 +558,64 @@ mod tests {
         ast.expect_token(Token::Start).unwrap();
         let value = ast.parse_value();
         assert!(value.is_ok());
-        assert_eq!(value.unwrap(), ValueNode::Variable(VariableNode { name: NameNode::new(Token::Name(0,0,0,"myVariable")).unwrap() }));
+        assert_eq!(value.unwrap(),
+            ValueNode::Variable(VariableNode { name: NameNode::from("myVariable") }));
+    }
+
+
+    #[test]
+    fn parses_a_directive() {
+        let mut ast = AST::new("@deprecated").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_directives();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), vec![
+            DirectiveNode {
+                name: NameNode::from("deprecated"),
+                arguments: None,
+            }
+        ])
+    }
+
+    #[test]
+    fn parses_directive_with_arguments() {
+        let mut ast = AST::new("@include(if: true)").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_directives();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), vec![
+            DirectiveNode {
+                name: NameNode::from("include"),
+                arguments: Some(vec![
+                    Argument {
+                        name: NameNode::from("if"),
+                        value: ValueNode::Bool(BooleanValueNode { value: true})
+                    }
+                ]),
+            }
+        ])
+    }
+
+    #[test]
+    fn parses_directive_with_multiple_arguments() {
+        let mut ast = AST::new("@size(height: 100, width: 50)").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_directives();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), vec![
+            DirectiveNode {
+                name: NameNode::from("size"),
+                arguments: Some(vec![
+                    Argument {
+                        name: NameNode::from("height"),
+                        value: ValueNode::Int(IntValueNode { value: 100 })
+                    },
+                    Argument {
+                        name: NameNode::from("width"),
+                        value: ValueNode::Int(IntValueNode { value: 50 })
+                    }
+                ]),
+            }
+        ])
     }
 }

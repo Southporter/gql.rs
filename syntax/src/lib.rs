@@ -19,7 +19,6 @@ pub fn parse<'a>(query: &'a str) -> ParseResult<Document>
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode, StringValueNode};
     use crate::nodes::*;
     use crate::token::Token;
     use crate::error::ParseError;
@@ -55,58 +54,42 @@ mod tests {
                             TypeDefinitionNode::Object(
                                 ObjectTypeDefinitionNode {
                                     description: None,
-                                    name: NameNode {
-                                        value: String::from("Obj")
-                                    },
+                                    name: NameNode::from("Obj"),
                                     fields: vec![
                                         FieldDefinitionNode {
                                             description: None,
-                                            name: NameNode {
-                                                value: String::from("name")
-                                            },
+                                            name: NameNode::from("name"),
                                             arguments: None,
                                             field_type: TypeNode::Named(
-                                                            NamedTypeNode {
-                                                                name: NameNode {
-                                                                    value: String::from("String")
-                                                                }
-                                                            }
-                                                        )
-
+                                                NamedTypeNode {
+                                                    name: NameNode::from("String"),
+                                                }
+                                            )
                                         },
                                         FieldDefinitionNode {
                                             description: None,
-                                            name: NameNode {
-                                                value: String::from("id")
-                                            },
+                                            name: NameNode::from("id"),
                                             arguments: None,
                                             field_type: TypeNode::NonNull(
-                                                            Rc::new(
-                                                                TypeNode::Named(
-                                                                    NamedTypeNode {
-                                                                        name: NameNode {
-                                                                            value: String::from("Int")
-                                                                        }
-                                                                    }
-                                                                )
-                                                            )
-                                                        )
-
+                                                Rc::new(
+                                                    TypeNode::Named(
+                                                        NamedTypeNode {
+                                                            name: NameNode::from("Int")
+                                                        }
+                                                    )
+                                                )
+                                            )
                                         },
                                         FieldDefinitionNode {
                                             description: None,
-                                            name: NameNode {
-                                                value: String::from("strs")
-                                            },
+                                            name: NameNode::from("strs"),
                                             arguments: None,
                                             field_type: TypeNode::List(
                                                 ListTypeNode {
                                                     list_type: Rc::new(
                                                         TypeNode::Named(
                                                             NamedTypeNode {
-                                                                name: NameNode {
-                                                                    value: String::from("String")
-                                                                }
+                                                                name: NameNode::from("String")
                                                             }
                                                         )
                                                     )
@@ -115,9 +98,7 @@ mod tests {
                                         },
                                         FieldDefinitionNode {
                                             description: None,
-                                            name: NameNode {
-                                                value: String::from("refIds")
-                                            },
+                                            name: NameNode::from("refIds"),
                                             arguments: None,
                                             field_type: TypeNode::NonNull(
                                                 Rc::new(TypeNode::List(
@@ -126,9 +107,7 @@ mod tests {
                                                             Rc::new(
                                                                 TypeNode::Named(
                                                                     NamedTypeNode {
-                                                                        name: NameNode {
-                                                                            value: String::from("Int")
-                                                                        }
+                                                                        name: NameNode::from("Int")
                                                                     }
                                                                 )
                                                             )
@@ -139,9 +118,7 @@ mod tests {
                                         },
                                         FieldDefinitionNode {
                                             description: None,
-                                            name: NameNode {
-                                                value: String::from("someIds")
-                                            },
+                                            name: NameNode::from("someIds"),
                                             arguments: None,
                                             field_type: TypeNode::NonNull(
                                                 Rc::new(
@@ -149,9 +126,7 @@ mod tests {
                                                         ListTypeNode::new(
                                                             TypeNode::Named(
                                                                 NamedTypeNode {
-                                                                    name: NameNode {
-                                                                        value: String::from("Int")
-                                                                    }
+                                                                    name: NameNode::from("Int")
                                                                 }
                                                             )
                                                         )
@@ -161,28 +136,24 @@ mod tests {
                                         },
                                         FieldDefinitionNode {
                                             description: None,
-                                            name: NameNode {
-                                                value: String::from("arg")
-                                            },
+                                            name: NameNode::from("arg"),
                                             arguments: Some(vec![
                                                 InputValueDefinitionNode {
                                                     description: None,
-                                                    name: NameNode { value: String::from("arg1") },
-                                                    input_type: TypeNode::Named(NamedTypeNode { name: NameNode { value: String::from("Int") } }),
+                                                    name: NameNode::from("arg1"),
+                                                    input_type: TypeNode::Named(NamedTypeNode { name: NameNode::from("Int") }),
                                                     default_value: Some(ValueNode ::Int(IntValueNode { value: 42 })),
                                                 },
                                                 InputValueDefinitionNode {
                                                     description: None,
-                                                    name: NameNode { value: String::from("arg2") },
-                                                    input_type: TypeNode::NonNull(Rc::new(TypeNode::Named(NamedTypeNode { name: NameNode { value: String::from("Bool") } }))),
+                                                    name: NameNode::from("arg2"),
+                                                    input_type: TypeNode::NonNull(Rc::new(TypeNode::Named(NamedTypeNode { name: NameNode::from("Bool") }))),
                                                     default_value: None,
                                                 },
                                             ]),
                                             field_type: TypeNode::Named(
                                                 NamedTypeNode {
-                                                    name: NameNode {
-                                                        value: String::from("Bool")
-                                                    }
+                                                    name: NameNode::from("Bool")
                                                 }
                                             )
                                         },
