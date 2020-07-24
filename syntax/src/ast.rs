@@ -252,16 +252,14 @@ impl<'i> AST<'i> {
                 Ok(ValueNode::Str(StringValueNode::new(str_tok)?))
             },
             Token::Dollar(_, _, _) => {
-                // TODO Implement self.parse_variable
-                // Ok(self.parse_variable()?)
-                Err(ParseError::NotImplemented)
+                let variable = self.parse_variable()?;
+                Ok(ValueNode::Variable(variable))
             },
             Token::OpenSquare(_,_,_) => {
                 let list_value = self.parse_list_value()?;
                 Ok(ValueNode::List(list_value))
             },
             Token::OpenBrace(_, _, _) => {
-                // TODO Implement self.parse_object()
                 let obj_value = self.parse_object_value()?;
                 Ok(ValueNode::Object(obj_value))
             }
@@ -294,6 +292,12 @@ impl<'i> AST<'i> {
             fields.push(ObjectFieldNode { name: NameNode::new(name)?, value });
         }
         Ok(ObjectValueNode { fields })
+    }
+
+    fn parse_variable(&mut self) -> ParseResult<VariableNode> {
+        self.expect_token(Token::Dollar(0,0,0))?;
+        let name = self.unwrap_next_token()?;
+        Ok(VariableNode { name: NameNode::new(name)? })
     }
 
     fn parse_error(&mut self, expected: String, received: Token) -> ParseError {
@@ -501,5 +505,14 @@ mod tests {
                 }
             ]
         }))
+    }
+
+    #[test]
+    fn parses_a_variable() {
+        let mut ast = AST::new("$myVariable").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_value();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), ValueNode::Variable(VariableNode { name: NameNode::new(Token::Name(0,0,0,"myVariable")).unwrap() }));
     }
 }
