@@ -74,10 +74,27 @@ impl<'i> AST<'i> {
         }
     }
 
+    fn parse_argument(&mut self) -> ParseResult<Argument> {
+        let name = self.unwrap_next_token()?;
+        self.expect_token(Token::Colon(0,0,0))?;
+        let value = self.parse_value()?;
+        Ok(Argument { name: NameNode::new(name)?, value })
+    }
+
     fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
         match self.expect_optional_token(&Token::OpenParen(0,0,0)) {
             Some(_) => {
-                // let
+                let mut args: Arguments = Vec::new();
+                loop {
+                    if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
+                        if args.is_empty() {
+                            return Err(ParseError::ArgumentEmpty);
+                        }
+                        break;
+                    }
+                    args.push(self.parse_argument()?);
+                }
+                Ok(Some(args))
             },
             None => Ok(None)
         }
@@ -524,11 +541,11 @@ mod tests {
         assert_eq!(value.unwrap(), ValueNode::Object(ObjectValueNode {
             fields: vec![
                 ObjectFieldNode {
-                    name: NameNode::new(Token::Name(0,0,0,"id")).unwrap(),
+                    name: NameNode::from("id"),
                     value: ValueNode::Int(IntValueNode { value: 42 }),
                 },
                 ObjectFieldNode {
-                    name: NameNode::new(Token::Name(0,0,0,"name")).unwrap(),
+                    name: NameNode::from("name"),
                     value: ValueNode::Str(StringValueNode::new(Token::Str(0,0,0,"Obj")).unwrap()),
                 }
             ]
@@ -541,7 +558,8 @@ mod tests {
         ast.expect_token(Token::Start).unwrap();
         let value = ast.parse_value();
         assert!(value.is_ok());
-        assert_eq!(value.unwrap(), ValueNode::Variable(VariableNode { name: NameNode::new(Token::Name(0,0,0,"myVariable")).unwrap() }));
+        assert_eq!(value.unwrap(),
+            ValueNode::Variable(VariableNode { name: NameNode::from("myVariable") }));
     }
 
 
@@ -553,7 +571,7 @@ mod tests {
         assert!(value.is_ok());
         assert_eq!(value.unwrap(), vec![
             DirectiveNode {
-                name: NameNode::new(Token::Name(0,0,0,"deprecated")).unwrap(),
+                name: NameNode::from("deprecated"),
                 arguments: None,
             }
         ])
@@ -567,8 +585,36 @@ mod tests {
         assert!(value.is_ok());
         assert_eq!(value.unwrap(), vec![
             DirectiveNode {
-                name: NameNode::new(Token::Name(0,0,0,"include")).unwrap(),
-                arguments: Some(vec![]),
+                name: NameNode::from("include"),
+                arguments: Some(vec![
+                    Argument {
+                        name: NameNode::from("if"),
+                        value: ValueNode::Bool(BooleanValueNode { value: true})
+                    }
+                ]),
+            }
+        ])
+    }
+
+    #[test]
+    fn parses_directive_with_multiple_arguments() {
+        let mut ast = AST::new("@size(height: 100, width: 50)").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_directives();
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), vec![
+            DirectiveNode {
+                name: NameNode::from("size"),
+                arguments: Some(vec![
+                    Argument {
+                        name: NameNode::from("height"),
+                        value: ValueNode::Int(IntValueNode { value: 100 })
+                    },
+                    Argument {
+                        name: NameNode::from("width"),
+                        value: ValueNode::Int(IntValueNode { value: 50 })
+                    }
+                ]),
             }
         ])
     }

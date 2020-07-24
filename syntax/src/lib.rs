@@ -19,7 +19,6 @@ pub fn parse<'a>(query: &'a str) -> ParseResult<Document>
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::nodes::{Document, DefinitionNode, TypeSystemDefinitionNode, TypeDefinitionNode, ObjectTypeDefinitionNode, NameNode, FieldDefinitionNode, TypeNode, NamedTypeNode, ListTypeNode, StringValueNode};
     use crate::nodes::*;
     use crate::token::Token;
     use crate::error::ParseError;

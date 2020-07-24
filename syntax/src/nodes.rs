@@ -20,6 +20,9 @@ impl NameNode {
                 received: token.to_string().to_owned() })
         }
     }
+    pub fn from(name: &str) -> NameNode {
+        NameNode { value: String::from(name) }
+    }
 }
 
 #[derive(Debug, PartialEq)]
