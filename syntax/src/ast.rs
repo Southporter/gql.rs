@@ -107,7 +107,7 @@ impl<'i> AST<'i> {
         Ok(DirectiveNode::new(name, arguments)?)
     }
 
-    fn parse_directives(&mut self) -> ParseResult<Vec<DirectiveNode>> {
+    fn parse_directives(&mut self) -> ParseResult<Option<Vec<DirectiveNode>>> {
         let mut directives: Vec<DirectiveNode> = Vec::new();
         loop {
             if let Token::At(_,_,_) = self.unwrap_peeked_token()? {
@@ -116,7 +116,11 @@ impl<'i> AST<'i> {
                 break;
             }
         }
-        Ok(directives)
+        if !directives.is_empty() {
+            Ok(Some(directives))
+        } else {
+            Ok(None)
+        }
     }
 
     fn parse_definitions(&'i mut self) -> ParseResult<Vec<DefinitionNode>> {
@@ -201,8 +205,9 @@ impl<'i> AST<'i> {
            name_tok == Token::Name(0,0,0, "null") {
             return Err(ParseError::BadValue)
         }
+        let directives = self.parse_directives()?;
         let values = self.parse_enum_values()?;
-        Ok(EnumTypeDefinitionNode::new(name_tok, description, values)?)
+        Ok(EnumTypeDefinitionNode::new(name_tok, description, directives, values)?)
     }
 
     fn parse_fields(&mut self) -> ParseResult<Vec<FieldDefinitionNode>> {
@@ -258,7 +263,8 @@ impl<'i> AST<'i> {
             }
             let description = self.parse_description()?;
             let name = self.expect_token(Token::Name(0, 0, 0, ""))?;
-            values.push(EnumValueDefinitionNode::new(name, description)?);
+            let directives = self.parse_directives()?;
+            values.push(EnumValueDefinitionNode::new(name, description, directives)?);
         }
         Ok(values)
     }
@@ -569,7 +575,7 @@ mod tests {
         ast.expect_token(Token::Start).unwrap();
         let value = ast.parse_directives();
         assert!(value.is_ok());
-        assert_eq!(value.unwrap(), vec![
+        assert_eq!(value.unwrap().unwrap(), vec![
             DirectiveNode {
                 name: NameNode::from("deprecated"),
                 arguments: None,
@@ -583,7 +589,7 @@ mod tests {
         ast.expect_token(Token::Start).unwrap();
         let value = ast.parse_directives();
         assert!(value.is_ok());
-        assert_eq!(value.unwrap(), vec![
+        assert_eq!(value.unwrap().unwrap(), vec![
             DirectiveNode {
                 name: NameNode::from("include"),
                 arguments: Some(vec![
@@ -602,7 +608,7 @@ mod tests {
         ast.expect_token(Token::Start).unwrap();
         let value = ast.parse_directives();
         assert!(value.is_ok());
-        assert_eq!(value.unwrap(), vec![
+        assert_eq!(value.unwrap().unwrap(), vec![
             DirectiveNode {
                 name: NameNode::from("size"),
                 arguments: Some(vec![
@@ -617,5 +623,52 @@ mod tests {
                 ]),
             }
         ])
+    }
+
+    #[test]
+    fn parses_enum_with_directives() {
+        let mut ast = AST::new("enum BadDirection @depricated { NORTH SWEST @badValue EAST WOUTH @badValue(allow: true) }").unwrap();
+        ast.expect_token(Token::Start).unwrap();
+        let value = ast.parse_type(None);
+        println!("Value: {:?}", value);
+        assert!(value.is_ok());
+        assert_eq!(value.unwrap(), TypeDefinitionNode::Enum(
+            EnumTypeDefinitionNode {
+                description: None,
+                name: NameNode::from("BadDirection"),
+                directives: Some(vec![DirectiveNode { name: NameNode::from("depricated"), arguments: None }]),
+                values: vec![
+                    EnumValueDefinitionNode {
+                        description: None,
+                        name: NameNode::from("NORTH"),
+                        directives: None,
+                    },
+                    EnumValueDefinitionNode {
+                        description: None,
+                        name: NameNode::from("SWEST"),
+                        directives: Some(vec![
+                            DirectiveNode { name: NameNode::from("badValue"), arguments: None }
+                        ])
+                    },
+                    EnumValueDefinitionNode {
+                        description: None,
+                        name: NameNode::from("EAST"),
+                        directives: None,
+                    },
+                    EnumValueDefinitionNode {
+                        description: None,
+                        name: NameNode::from("WOUTH"),
+                        directives: Some(vec![
+                            DirectiveNode { name: NameNode::from("badValue"), arguments: Some(vec![
+                                Argument {
+                                    name: NameNode::from("allow"),
+                                    value: ValueNode::Bool(BooleanValueNode { value: true })
+                                }
+                            ])}
+                        ])
+                    },
+                ]
+            }
+        ))
     }
 }
