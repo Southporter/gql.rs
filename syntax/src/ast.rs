@@ -116,7 +116,7 @@ impl<'i> AST<'i> {
                 break;
             }
         }
-        if directives.len() > 0 {
+        if !directives.is_empty() {
             Ok(Some(directives))
         } else {
             Ok(None)
