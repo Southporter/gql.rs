@@ -239,36 +239,42 @@ type Obj {
                                     name: NameNode {
                                         value: String::from("VEHICLE_TYPE")
                                     },
+                                    directives: None,
                                     values: vec![
                                         EnumValueDefinitionNode {
                                             description: None,
                                             name: NameNode {
                                                 value: String::from("SEDAN")
-                                            }
+                                            },
+                                            directives: None,
                                         },
                                         EnumValueDefinitionNode {
                                             description: None,
                                             name: NameNode {
                                                 value: String::from("SUV")
-                                            }
+                                            },
+                                            directives: None,
                                         },
                                         EnumValueDefinitionNode {
                                             description: None,
                                             name: NameNode {
                                                 value: String::from("COMPACT")
-                                            }
+                                            },
+                                            directives: None,
                                         },
                                         EnumValueDefinitionNode {
                                             description: None,
                                             name: NameNode {
                                                 value: String::from("TRUCK")
-                                            }
+                                            },
+                                            directives: None,
                                         },
                                         EnumValueDefinitionNode {
                                             description: None,
                                             name: NameNode {
                                                 value: String::from("HYBRID")
-                                            }
+                                            },
+                                            directives: None,
                                         },
                                     ]
                                 }

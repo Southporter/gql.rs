@@ -225,14 +225,15 @@ impl FieldDefinitionNode {
 pub struct EnumValueDefinitionNode {
     pub description: Description,
     pub name: NameNode,
-    // directives: Option<Vec<DirectiveDefinitionNode>>
+    pub directives: Option<Vec<DirectiveNode>>
 }
 
 impl EnumValueDefinitionNode {
-    pub fn new(name: Token, description: Description) -> ParseResult<EnumValueDefinitionNode> {
+    pub fn new(name: Token, description: Description, directives: Option<Vec<DirectiveNode>>) -> ParseResult<EnumValueDefinitionNode> {
         Ok(EnumValueDefinitionNode {
             description,
             name: NameNode::new(name)?,
+            directives,
         })
     }
 }
@@ -320,15 +321,16 @@ impl ObjectTypeDefinitionNode {
 pub struct EnumTypeDefinitionNode {
     pub description: Description,
     pub name: NameNode,
-    // directives: Vec<DirectiveDefinitionNode>,
+    pub directives: Option<Vec<DirectiveNode>>,
     pub values: Vec<EnumValueDefinitionNode>
 }
 
 impl EnumTypeDefinitionNode {
-    pub fn new(tok: Token, description: Description, values: Vec<EnumValueDefinitionNode>) -> Result<EnumTypeDefinitionNode, ParseError> {
+    pub fn new(tok: Token, description: Description, directives: Option<Vec<DirectiveNode>>, values: Vec<EnumValueDefinitionNode>) -> Result<EnumTypeDefinitionNode, ParseError> {
         Ok(EnumTypeDefinitionNode {
             description,
             name: NameNode::new(tok)?,
+            directives,
             values,
         })
     }
