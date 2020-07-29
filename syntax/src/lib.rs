@@ -9,6 +9,8 @@ use ast::AST;
 use nodes::Document;
 use error::ParseResult;
 
+/// Parse a string into a GraphQL Document.
+/// This is a potentially heavy, synchronous operation.
 pub fn parse<'a>(query: &'a str) -> ParseResult<Document>
 {
     let mut ast = AST::new(query)?;
@@ -281,6 +283,56 @@ type Obj {
                             )
                         )
                     )
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn parses_union() {
+        let res = parse(r#"union SearchResult = Photo | Person
+union Pic =
+  | Gif
+  | Jpeg
+  | Png
+  | Svg
+"#);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(),
+            Document {
+                definitions: vec![
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Union(
+                                UnionTypeDefinitionNode {
+                                    description: None,
+                                    name: NameNode::from("SearchResult"),
+                                    directives: None,
+                                    types: vec![
+                                        NamedTypeNode::from("Photo"),
+                                        NamedTypeNode::from("Person"),
+                                    ]
+                                }
+                            )
+                        )
+                    ),
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Union(
+                                UnionTypeDefinitionNode {
+                                    description: None,
+                                    name: NameNode::from("Pic"),
+                                    directives: None,
+                                    types: vec![
+                                        NamedTypeNode::from("Gif"),
+                                        NamedTypeNode::from("Jpeg"),
+                                        NamedTypeNode::from("Png"),
+                                        NamedTypeNode::from("Svg"),
+                                    ]
+                                }
+                            )
+                        )
+                    ),
                 ]
             }
         );
