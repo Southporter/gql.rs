@@ -8,6 +8,9 @@ pub struct NameNode {
     pub value: String
 }
 impl NameNode {
+    /// Generates a new name node from the itoken.
+    /// If the token is not of type Token::Name,
+    /// an error is thrown
     pub fn new(token: Token) -> Result<NameNode, ParseError> {
         match token {
             Token::Name(_, _, _, value) => Ok(
@@ -20,6 +23,8 @@ impl NameNode {
                 received: token.to_string().to_owned() })
         }
     }
+
+    /// Used internally for testing. No error is thrown.
     pub fn from(name: &str) -> NameNode {
         NameNode { value: String::from(name) }
     }
@@ -60,10 +65,20 @@ pub struct NamedTypeNode {
 }
 
 impl NamedTypeNode {
-    pub fn new(tok: Token) -> Result<NamedTypeNode, ParseError> {
+    /// Generates a NamedTypeNode from the token.
+    /// NameNode will throw an error if the token is not
+    /// of type Token::Name
+    pub fn new(tok: Token) -> ParseResult<NamedTypeNode> {
         Ok(NamedTypeNode {
             name: NameNode::new(tok)?,
         })
+    }
+
+    /// Used for internal testing.
+    pub fn from(name: &str) -> NamedTypeNode {
+        NamedTypeNode {
+            name: NameNode::from(name)
+        }
     }
 }
 
@@ -194,6 +209,7 @@ pub struct Argument {
 pub type Description = Option<StringValueNode>;
 pub type Arguments = Vec<Argument>;
 pub type ArgumentDefinitions = Vec<InputValueDefinitionNode>;
+pub type Directives = Vec<DirectiveNode>;
 
 // #[derive(Debug)]
 // enum ValueNode {
@@ -225,11 +241,11 @@ impl FieldDefinitionNode {
 pub struct EnumValueDefinitionNode {
     pub description: Description,
     pub name: NameNode,
-    pub directives: Option<Vec<DirectiveNode>>
+    pub directives: Option<Directives>
 }
 
 impl EnumValueDefinitionNode {
-    pub fn new(name: Token, description: Description, directives: Option<Vec<DirectiveNode>>) -> ParseResult<EnumValueDefinitionNode> {
+    pub fn new(name: Token, description: Description, directives: Option<Directives>) -> ParseResult<EnumValueDefinitionNode> {
         Ok(EnumValueDefinitionNode {
             description,
             name: NameNode::new(name)?,
@@ -321,12 +337,12 @@ impl ObjectTypeDefinitionNode {
 pub struct EnumTypeDefinitionNode {
     pub description: Description,
     pub name: NameNode,
-    pub directives: Option<Vec<DirectiveNode>>,
+    pub directives: Option<Directives>,
     pub values: Vec<EnumValueDefinitionNode>
 }
 
 impl EnumTypeDefinitionNode {
-    pub fn new(tok: Token, description: Description, directives: Option<Vec<DirectiveNode>>, values: Vec<EnumValueDefinitionNode>) -> Result<EnumTypeDefinitionNode, ParseError> {
+    pub fn new(tok: Token, description: Description, directives: Option<Directives>, values: Vec<EnumValueDefinitionNode>) -> ParseResult<EnumTypeDefinitionNode> {
         Ok(EnumTypeDefinitionNode {
             description,
             name: NameNode::new(tok)?,
@@ -337,12 +353,31 @@ impl EnumTypeDefinitionNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct UnionTypeDefinitionNode {
+    pub description: Description,
+    pub name: NameNode,
+    pub directives: Option<Directives>,
+    pub types: Vec<NamedTypeNode>
+}
+
+impl UnionTypeDefinitionNode {
+    pub fn new(tok: Token, description: Description, directives: Option<Directives>, types: Vec<NamedTypeNode>) -> ParseResult<UnionTypeDefinitionNode> {
+        Ok(UnionTypeDefinitionNode {
+            description,
+            name: NameNode::new(tok)?,
+            directives,
+            types,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum TypeDefinitionNode {
     Scalar(ScalarTypeDefinitionNode),
     Object(ObjectTypeDefinitionNode),
     // Interface(InterfaceTypeDefinitionNode)
-    // Union(UnionTypeDefinitionNode)
-    Enum(EnumTypeDefinitionNode)
+    Union(UnionTypeDefinitionNode),
+    Enum(EnumTypeDefinitionNode),
     // Input(InputObjectTypeDefinitionNode)
 }
 

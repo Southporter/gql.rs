@@ -145,7 +145,7 @@ impl<'i> AST<'i> {
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
-                "type" | "enum" => Ok(DefinitionNode::TypeSystem(
+                "type" | "enum" | "union" => Ok(DefinitionNode::TypeSystem(
                     TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?
                     )
@@ -173,6 +173,11 @@ impl<'i> AST<'i> {
                 "enum" => Ok(
                     TypeDefinitionNode::Enum(
                         self.parse_enum_type(description)?
+                    )
+                ),
+                "union" => Ok(
+                    TypeDefinitionNode::Union(
+                        self.parse_union_type(description)?
                     )
                 ),
                 _ => Err(ParseError::BadValue),
@@ -208,6 +213,14 @@ impl<'i> AST<'i> {
         let directives = self.parse_directives()?;
         let values = self.parse_enum_values()?;
         Ok(EnumTypeDefinitionNode::new(name_tok, description, directives, values)?)
+    }
+
+    fn parse_union_type(&mut self, description: Description) -> ParseResult<UnionTypeDefinitionNode> {
+        let name_tok = self.expect_token(Token::Name(0,0,0, "union"))?;
+        let directives = self.parse_directives()?;
+        self.expect_token(Token::Equals(0,0,0))?;
+        let types = self.parse_union_types()?;
+        Ok(UnionTypeDefinitionNode::new(name_tok, description, directives, types)?)
     }
 
     fn parse_fields(&mut self) -> ParseResult<Vec<FieldDefinitionNode>> {
@@ -267,6 +280,21 @@ impl<'i> AST<'i> {
             values.push(EnumValueDefinitionNode::new(name, description, directives)?);
         }
         Ok(values)
+    }
+
+    fn parse_union_types(&mut self) -> ParseResult<Vec<NamedTypeNode>> {
+        let mut types: Vec<NamedTypeNode> = Vec::new();
+        // First Pipe is truely optional
+        self.expect_optional_token(&Token::Pipe(0,0,0));
+        types.push(NamedTypeNode::new(self.unwrap_next_token()?)?);
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::Pipe(0,0,0)) {
+                types.push(NamedTypeNode::new(self.unwrap_next_token()?)?);
+            } else {
+                break;
+            }
+        }
+        Ok(types)
     }
 
     fn parse_default_value(&mut self) -> ParseResult<Option<ValueNode>> {
