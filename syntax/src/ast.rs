@@ -194,10 +194,14 @@ impl<'i> AST<'i> {
 
         let name_tok = self.unwrap_next_token()?;
         if let Token::Name(_, _, _, _name) = name_tok {
+            let interfaces = self.parse_object_interfaces()?;
+            let directives = self.parse_directives()?;
             let fields = self.parse_fields()?;
 
-            let obj = Ok(ObjectTypeDefinitionNode::new(name_tok, description, fields)?);
-            obj
+            let mut obj = ObjectTypeDefinitionNode::new(name_tok, description, fields)?;
+            obj.with_interfaces(interfaces);
+            obj.with_directives(directives);
+            Ok(obj)
         } else {
             Err(self.parse_error(String::from("Token::Name"), name_tok))
         }
@@ -221,6 +225,31 @@ impl<'i> AST<'i> {
         self.expect_token(Token::Equals(0,0,0))?;
         let types = self.parse_union_types()?;
         Ok(UnionTypeDefinitionNode::new(name_tok, description, directives, types)?)
+    }
+
+    fn parse_object_interfaces(&mut self) -> ParseResult<Option<Vec<NamedTypeNode>>> {
+        if let Some(name_tok) = self.expect_optional_token(&Token::Name(0,0,0,"")) {
+            match name_tok {
+                Token::Name(_,_,_, "implements") => {
+                    let mut interface_names: Vec<NamedTypeNode> = Vec::new();
+                    loop {
+                        let interface_name = self.expect_token(Token::Name(0,0,0,""))?;
+                        interface_names.push(NamedTypeNode::new(interface_name)?);
+                        if let None = self.expect_optional_token(&Token::Amp(0,0,0)) {
+                            break;
+                        }
+                    }
+                    Ok(Some(interface_names))
+                },
+                Token::Name(_,_,_, keyword) => Err(ParseError::UnexpectedKeyword {
+                    expected: String::from("implements"),
+                    received: keyword.to_owned(),
+                }),
+                tok => Err(ParseError::UnexpectedToken { expected: String::from("Token<Name>"), received: tok.to_string() })
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     fn parse_fields(&mut self) -> ParseResult<Vec<FieldDefinitionNode>> {

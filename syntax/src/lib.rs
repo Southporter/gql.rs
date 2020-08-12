@@ -57,6 +57,8 @@ mod tests {
                                 ObjectTypeDefinitionNode {
                                     description: None,
                                     name: NameNode::from("Obj"),
+                                    interfaces: None,
+                                    directives: None,
                                     fields: vec![
                                         FieldDefinitionNode {
                                             description: None,
@@ -193,6 +195,8 @@ type Obj {
                                 name: NameNode {
                                     value: String::from("Obj")
                                 },
+                                interfaces: None,
+                                directives: None,
                                 fields: vec![
                                     FieldDefinitionNode {
                                         description: Some(StringValueNode::new(Token::BlockStr(0,0,0,"This is the name of the object")).unwrap()),
@@ -333,6 +337,72 @@ union Pic =
                             )
                         )
                     ),
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn parses_object_with_interface() {
+        println!("Parsing object with interface");
+        let res = parse(r#"type Obj implements Named & Sort & Filter {}"#);
+        println!("res: {:?}", res);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(),
+            Document {
+                definitions: vec![
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Object(
+                                ObjectTypeDefinitionNode {
+                                    description: None,
+                                    name: NameNode::from("Obj"),
+                                    interfaces: Some(vec![
+                                        NamedTypeNode::from("Named"),
+                                        NamedTypeNode::from("Sort"),
+                                        NamedTypeNode::from("Filter"),
+                                    ]),
+                                    directives: None,
+                                    fields: vec![],
+                                }
+                            )
+                        )
+                    )
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn parses_object_with_directives() {
+        println!("Parsing object with directives");
+        let res = parse(r#"type Obj @depricated @old(allow: false) {}"#);
+        println!("res: {:?}", res);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(),
+            Document {
+                definitions: vec![
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Object(
+                                ObjectTypeDefinitionNode {
+                                    description: None,
+                                    name: NameNode::from("Obj"),
+                                    interfaces: None,
+                                    directives: Some(vec![
+                                        DirectiveNode { name: NameNode::from("depricated"), arguments: None },
+                                        DirectiveNode { name: NameNode::from("old"), arguments: Some(vec![
+                                            Argument {
+                                               name: NameNode::from("allow"),
+                                               value: ValueNode::Bool(BooleanValueNode { value: false })
+                                            }
+                                        ])},
+                                    ]),
+                                    fields: vec![],
+                                }
+                            )
+                        )
+                    )
                 ]
             }
         );
