@@ -376,7 +376,7 @@ union Pic =
     #[test]
     fn parses_object_with_directives() {
         println!("Parsing object with directives");
-        let res = parse(r#"type Obj @ {}"#);
+        let res = parse(r#"type Obj @depricated @old(allow: false) {}"#);
         println!("res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(),
@@ -388,12 +388,16 @@ union Pic =
                                 ObjectTypeDefinitionNode {
                                     description: None,
                                     name: NameNode::from("Obj"),
-                                    interfaces: Some(vec![
-                                        NamedTypeNode::from("Named"),
-                                        NamedTypeNode::from("Sort"),
-                                        NamedTypeNode::from("Filter"),
+                                    interfaces: None,
+                                    directives: Some(vec![
+                                        DirectiveNode { name: NameNode::from("depricated"), arguments: None },
+                                        DirectiveNode { name: NameNode::from("old"), arguments: Some(vec![
+                                            Argument {
+                                               name: NameNode::from("allow"),
+                                               value: ValueNode::Bool(BooleanValueNode { value: false })
+                                            }
+                                        ])},
                                     ]),
-                                    directives: None,
                                     fields: vec![],
                                 }
                             )
