@@ -318,18 +318,30 @@ impl ScalarTypeDefinitionNode {
 pub struct ObjectTypeDefinitionNode {
     pub description: Description,
     pub name: NameNode,
-    // interfaces: Vec<NamedTypeNode>,
-    // directives: Vec<DirectiveDefinitionNode>,
+    pub interfaces: Option<Vec<NamedTypeNode>>,
+    pub directives: Option<Directives>,
     pub fields: Vec<FieldDefinitionNode>
 }
 
 impl ObjectTypeDefinitionNode {
-    pub fn new(tok: Token, description: Description, fields: Vec<FieldDefinitionNode>) -> Result<ObjectTypeDefinitionNode, ParseError> {
+    pub fn new(tok: Token, description: Description, fields: Vec<FieldDefinitionNode>) -> ParseResult<Self> {
         Ok(ObjectTypeDefinitionNode {
             description,
             name: NameNode::new(tok)?,
+            interfaces: None,
+            directives: None,
             fields
         })
+    }
+
+    pub fn with_interfaces(&mut self, interfaces: Option<Vec<NamedTypeNode>>) -> &mut Self {
+        self.interfaces = interfaces;
+        self
+    }
+
+    pub fn with_directives(&mut self, directives: Option<Directives>) -> &mut Self {
+        self.directives = directives;
+        self
     }
 }
 

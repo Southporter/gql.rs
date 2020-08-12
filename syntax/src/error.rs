@@ -8,6 +8,7 @@ pub enum ParseError {
     EOF,
     LexError(LexErrorKind),
     UnexpectedToken { expected: String, received: String },
+    UnexpectedKeyword { expected: String, received: String },
     NotImplemented,
 }
 
