@@ -213,7 +213,7 @@ impl<'i> AST<'i> {
         let directives = self.parse_directives()?;
         let fields = self.parse_fields()?;
 
-        let mut interface = InterfaceTypeDefinitionNode::new(name_tokgg, description)?;
+        let mut interface = InterfaceTypeDefinitionNode::new(name_tok, description)?;
         interface.with_directives(directives);
         interface.with_fields(fields);
         Ok(interface)
