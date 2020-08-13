@@ -2,7 +2,6 @@ use crate::token::Token;
 use crate::error::{ParseError, ParseResult};
 use std::rc::Rc;
 
-
 #[derive(Debug, PartialEq)]
 pub struct NameNode {
     pub value: String
@@ -346,6 +345,34 @@ impl ObjectTypeDefinitionNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct InterfaceTypeDefinitionNode {
+    pub description: Description,
+    pub name: NameNode,
+    pub directives: Option<Directives>,
+    pub fields: Vec<FieldDefinitionNode>,
+}
+
+impl InterfaceTypeDefinitionNode {
+    pub fn new(tok: Token, description: Description) -> ParseResult<InterfaceTypeDefinitionNode> {
+        Ok(InterfaceTypeDefinitionNode {
+            name: NameNode::new(tok)?,
+            description,
+            directives: None,
+            fields: Vec::new(),
+        })
+    }
+    pub fn with_fields(&mut self, fields: Vec<FieldDefinitionNode>) -> &mut Self {
+        self.fields = fields;
+        self
+    }
+
+    pub fn with_directives(&mut self, directives: Option<Directives>) -> &mut Self {
+        self.directives = directives;
+        self
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct EnumTypeDefinitionNode {
     pub description: Description,
     pub name: NameNode,
@@ -387,7 +414,7 @@ impl UnionTypeDefinitionNode {
 pub enum TypeDefinitionNode {
     Scalar(ScalarTypeDefinitionNode),
     Object(ObjectTypeDefinitionNode),
-    // Interface(InterfaceTypeDefinitionNode)
+    Interface(InterfaceTypeDefinitionNode),
     Union(UnionTypeDefinitionNode),
     Enum(EnumTypeDefinitionNode),
     // Input(InputObjectTypeDefinitionNode)
