@@ -11,6 +11,7 @@ pub struct AST<'i>
 }
 
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+
 impl<'i> Display for AST<'i> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "AST")
@@ -145,7 +146,7 @@ impl<'i> AST<'i> {
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
-                "type" | "enum" | "union" => Ok(DefinitionNode::TypeSystem(
+                "type" | "enum" | "union" | "interface" => Ok(DefinitionNode::TypeSystem(
                     TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?
                     )
@@ -180,6 +181,11 @@ impl<'i> AST<'i> {
                         self.parse_union_type(description)?
                     )
                 ),
+                "interface" => Ok(
+                    TypeDefinitionNode::Interface(
+                        self.parse_interface_type(description)?
+                    )
+                ),
                 _ => Err(ParseError::BadValue),
             }
         } else {
@@ -191,20 +197,26 @@ impl<'i> AST<'i> {
     }
 
     fn parse_object_type(&mut self, description: Description) -> ParseResult<ObjectTypeDefinitionNode> {
+        let name_tok = self.expect_token(Token::Name(0,0,0,""))?;
+        let interfaces = self.parse_object_interfaces()?;
+        let directives = self.parse_directives()?;
+        let fields = self.parse_fields()?;
 
-        let name_tok = self.unwrap_next_token()?;
-        if let Token::Name(_, _, _, _name) = name_tok {
-            let interfaces = self.parse_object_interfaces()?;
-            let directives = self.parse_directives()?;
-            let fields = self.parse_fields()?;
+        let mut obj = ObjectTypeDefinitionNode::new(name_tok, description, fields)?;
+        obj.with_interfaces(interfaces);
+        obj.with_directives(directives);
+        Ok(obj)
+    }
 
-            let mut obj = ObjectTypeDefinitionNode::new(name_tok, description, fields)?;
-            obj.with_interfaces(interfaces);
-            obj.with_directives(directives);
-            Ok(obj)
-        } else {
-            Err(self.parse_error(String::from("Token::Name"), name_tok))
-        }
+    fn parse_interface_type(&mut self, description: Description) -> ParseResult<InterfaceTypeDefinitionNode> {
+        let name_tok = self.expect_token(Token::Name(0,0,0,""))?;
+        let directives = self.parse_directives()?;
+        let fields = self.parse_fields()?;
+
+        let mut interface = InterfaceTypeDefinitionNode::new(name_tok, description)?;
+        interface.with_directives(directives);
+        interface.with_fields(fields);
+        Ok(interface)
     }
 
     fn parse_enum_type(&mut self, description: Description) -> ParseResult<EnumTypeDefinitionNode> {

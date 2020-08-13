@@ -407,4 +407,82 @@ union Pic =
             }
         );
     }
+
+    #[test]
+    fn parse_interfaces() {
+        let res = parse(r#"interface Empty {}
+interface Named {
+  name: String
+}
+interface Void @depricated {
+  void: Boolean!
+}
+"#);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(),
+            Document {
+                definitions: vec![
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Interface(
+                                InterfaceTypeDefinitionNode {
+                                    name: NameNode::from("Empty"),
+                                    description: None,
+                                    directives: None,
+                                    fields: Vec::new(),
+                                }
+                            )
+                        )
+                    ),
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Interface(
+                                InterfaceTypeDefinitionNode {
+                                    name: NameNode::from("Named"),
+                                    description: None,
+                                    directives: None,
+                                    fields: vec![
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode::from("name"),
+                                            arguments: None,
+                                            field_type: TypeNode::Named(
+                                                NamedTypeNode::from("String")
+                                            )
+                                        }
+                                    ],
+                                }
+                            )
+                        )
+                    ),
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Interface(
+                                InterfaceTypeDefinitionNode {
+                                    name: NameNode::from("Void"),
+                                    description: None,
+                                    directives: Some(vec![
+                                        DirectiveNode {
+                                            name: NameNode::from("depricated"),
+                                            arguments: None
+                                        }
+                                    ]),
+                                    fields: vec![
+                                        FieldDefinitionNode {
+                                            description: None,
+                                            name: NameNode::from("void"),
+                                            arguments: None,
+                                            field_type: TypeNode::NonNull(
+                                                Rc::new(TypeNode::Named(NamedTypeNode::from("Boolean")))
+                                            )
+                                        }
+                                    ],
+                                }
+                            )
+                        )
+                    ),
+                ]
+            }
+        )
+    }
 }
