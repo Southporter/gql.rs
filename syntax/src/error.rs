@@ -5,6 +5,7 @@ pub enum ParseError {
     BadValue,
     DocumentEmpty,
     ArgumentEmpty,
+    ObjectEmpty,
     EOF,
     LexError(LexErrorKind),
     UnexpectedToken { expected: String, received: String },
