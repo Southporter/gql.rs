@@ -150,7 +150,7 @@ impl<'i> AST<'i> {
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
-                "type" | "enum" | "union" | "interface" | "input" => Ok(DefinitionNode::TypeSystem(
+                "type" | "enum" | "union" | "interface" | "input" | "scalar" => Ok(DefinitionNode::TypeSystem(
                     TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?
                     )
@@ -195,6 +195,11 @@ impl<'i> AST<'i> {
                         self.parse_input_type(description)?
                     )
                 ),
+                "scalar" => Ok(
+                    TypeDefinitionNode::Scalar(
+                        self.parse_scalar_type(description)?
+                    )
+                ),
                 _ => Err(ParseError::BadValue),
             }
         } else {
@@ -234,6 +239,14 @@ impl<'i> AST<'i> {
         let fields = self.parse_input_fields()?;
         input_type.with_fields(fields);
         Ok(input_type)
+    }
+
+    fn parse_scalar_type(&mut self, description: Description) -> ParseResult<ScalarTypeDefinitionNode> {
+        let name_tok = self.expect_token(Token::Name(0,0,0,""))?;
+        let directives = self.parse_directives()?;
+        let mut scalar_type = ScalarTypeDefinitionNode::new(name_tok, description)?;
+        scalar_type.with_directives(directives);
+        Ok(scalar_type)
     }
 
     fn parse_enum_type(&mut self, description: Description) -> ParseResult<EnumTypeDefinitionNode> {
