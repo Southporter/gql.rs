@@ -25,7 +25,6 @@ mod tests {
     use crate::token::Token;
     use crate::error::ParseError;
     use std::rc::Rc;
-    use crate::nodes::TypeDefinitionNode::Input;
 
     #[test]
     fn it_handles_empty_document() {
