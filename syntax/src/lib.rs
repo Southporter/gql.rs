@@ -530,4 +530,48 @@ input Point {
             }
         )
     }
+
+    #[test]
+    fn parses_scalars() {
+        let res = parse(r#"scalar Date
+"""Time is represented by a string"""
+scalar Time @format(pattern: "HH:mm:ss")"#);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), Document {
+            definitions: vec![
+                DefinitionNode::TypeSystem(
+                    TypeSystemDefinitionNode::Type(
+                        TypeDefinitionNode::Scalar(
+                            ScalarTypeDefinitionNode {
+                                description: None,
+                                name: NameNode::from("Date"),
+                                directives: None,
+                            }
+                        )
+                    )
+                ),
+                DefinitionNode::TypeSystem(
+                    TypeSystemDefinitionNode::Type(
+                        TypeDefinitionNode::Scalar(
+                            ScalarTypeDefinitionNode {
+                                description: Some(StringValueNode::from("Time is represented by a string", true)),
+                                name: NameNode::from("Time"),
+                                directives: Some(vec![
+                                    DirectiveNode {
+                                        name: NameNode::from("format"),
+                                        arguments: Some(vec![
+                                            Argument {
+                                                name: NameNode::from("pattern"),
+                                                value:  ValueNode::Str(StringValueNode::from("HH:mm:ss", false))
+                                            }
+                                        ])
+                                    }
+                                ]),
+                            }
+                        )
+                    )
+                ),
+            ]
+        })
+    }
 }

@@ -10,7 +10,7 @@ impl NameNode {
     /// Generates a new name node from the itoken.
     /// If the token is not of type Token::Name,
     /// an error is thrown
-    pub fn new(token: Token) -> Result<NameNode, ParseError> {
+    pub fn new(token: Token) -> ParseResult<NameNode> {
         match token {
             Token::Name(_, _, _, value) => Ok(
                 NameNode {
@@ -54,6 +54,13 @@ impl StringValueNode {
                 expected: String::from("Token<Str> or Token<BlockStr>"),
                 received: token.to_string().to_owned()
             })
+        }
+    }
+
+    pub fn from(content: &str, block: bool) -> StringValueNode {
+        StringValueNode {
+            value: String::from(content),
+            block,
         }
     }
 }
@@ -309,18 +316,24 @@ impl SchemaDefinitionNode {
 
 #[derive(Debug, PartialEq)]
 pub struct ScalarTypeDefinitionNode {
-    description: Description,
-    name: NameNode,
-    // directives: Vec<DirectiveDefinitionNode>
+    pub description: Description,
+    pub name: NameNode,
+    pub directives: Option<Directives>
 }
 
 impl ScalarTypeDefinitionNode {
-    pub fn new(tok: Token) -> Result<ScalarTypeDefinitionNode, ParseError> {
+    pub fn new(tok: Token, description: Description) -> ParseResult<ScalarTypeDefinitionNode> {
         let name = NameNode::new(tok)?;
         Ok(ScalarTypeDefinitionNode {
-            description: None,
-            name
+            description,
+            name,
+            directives: None,
         })
+    }
+
+    pub fn with_directives(&mut self, directives: Option<Directives>) -> &mut Self {
+        self.directives = directives;
+        self
     }
 }
 
