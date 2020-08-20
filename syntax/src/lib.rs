@@ -147,12 +147,14 @@ mod tests {
                                                     name: NameNode::from("arg1"),
                                                     input_type: TypeNode::Named(NamedTypeNode { name: NameNode::from("Int") }),
                                                     default_value: Some(ValueNode ::Int(IntValueNode { value: 42 })),
+                                                    directives: None,
                                                 },
                                                 InputValueDefinitionNode {
                                                     description: None,
                                                     name: NameNode::from("arg2"),
                                                     input_type: TypeNode::NonNull(Rc::new(TypeNode::Named(NamedTypeNode { name: NameNode::from("Bool") }))),
                                                     default_value: None,
+                                                    directives: None,
                                                 },
                                             ]),
                                             field_type: TypeNode::Named(
@@ -481,6 +483,49 @@ interface Void @depricated {
                             )
                         )
                     ),
+                ]
+            }
+        )
+    }
+
+    #[test]
+    fn parses_input_type() {
+        let res = parse(r#"
+input Point {
+  x: Float
+  y: Float
+}
+"#);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(),
+            Document {
+                definitions: vec![
+                    DefinitionNode::TypeSystem(
+                        TypeSystemDefinitionNode::Type(
+                            TypeDefinitionNode::Input(
+                                InputTypeDefinitionNode {
+                                    description: None,
+                                    name: NameNode::from("Point"),
+                                    fields: vec![
+                                        InputValueDefinitionNode {
+                                            description: None,
+                                            name: NameNode::from("x"),
+                                            input_type: TypeNode::Named(NamedTypeNode::from("Float")),
+                                            default_value: None,
+                                            directives: None
+                                        },
+                                        InputValueDefinitionNode {
+                                            description: None,
+                                            name: NameNode::from("y"),
+                                            input_type: TypeNode::Named(NamedTypeNode::from("Float")),
+                                            default_value: None,
+                                            directives: None
+                                        },
+                                    ],
+                                }
+                            )
+                        )
+                    )
                 ]
             }
         )

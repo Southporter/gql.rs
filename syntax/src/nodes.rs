@@ -185,17 +185,28 @@ pub struct InputValueDefinitionNode {
     pub name: NameNode,
     pub input_type: TypeNode,
     pub default_value: Option<ValueNode>,
-    // pub directives: Directives
+    pub directives: Option<Directives>
 }
 
 impl InputValueDefinitionNode {
-    pub fn new(name: Token, input_type: TypeNode, description: Description, default_value: Option<ValueNode>) -> ParseResult<InputValueDefinitionNode> {
+    pub fn new(name: Token, input_type: TypeNode, description: Description) -> ParseResult<InputValueDefinitionNode> {
         Ok(InputValueDefinitionNode {
             description,
             name: NameNode::new(name)?,
             input_type,
-            default_value,
+            default_value: None,
+            directives: None,
         })
+    }
+
+    pub fn with_default_value(&mut self, default_value: Option<ValueNode>) -> &mut Self {
+        self.default_value = default_value;
+        self
+    }
+
+    pub fn with_directives(&mut self, directives: Option<Directives>) -> &mut Self {
+        self.directives = directives;
+        self
     }
 }
 
@@ -345,6 +356,28 @@ impl ObjectTypeDefinitionNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct InputTypeDefinitionNode {
+    pub description: Description,
+    pub name: NameNode,
+    pub fields: Vec<InputValueDefinitionNode>
+}
+
+impl InputTypeDefinitionNode {
+    pub fn new(name_tok: Token, description: Description) -> ParseResult<InputTypeDefinitionNode> {
+        Ok(InputTypeDefinitionNode {
+            name: NameNode::new(name_tok)?,
+            description,
+            fields: Vec::new(),
+        })
+    }
+
+    pub fn with_fields(&mut self, fields: Vec<InputValueDefinitionNode>) -> &mut Self {
+        self.fields = fields;
+        self
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct InterfaceTypeDefinitionNode {
     pub description: Description,
     pub name: NameNode,
@@ -417,7 +450,7 @@ pub enum TypeDefinitionNode {
     Interface(InterfaceTypeDefinitionNode),
     Union(UnionTypeDefinitionNode),
     Enum(EnumTypeDefinitionNode),
-    // Input(InputObjectTypeDefinitionNode)
+    Input(InputTypeDefinitionNode)
 }
 
 #[derive(Debug, PartialEq)]

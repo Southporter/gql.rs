@@ -47,13 +47,17 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_argument_definition(&mut self) -> ParseResult<InputValueDefinitionNode> {
+    fn parse_input_value(&mut self) -> ParseResult<InputValueDefinitionNode> {
         let description = self.parse_description()?;
         let name_tok = self.unwrap_next_token()?;
         self.expect_token(Token::Colon(0,0,0))?;
         let type_node = self.parse_field_type()?;
         let default_value = self.parse_default_value()?;
-        InputValueDefinitionNode::new(name_tok, type_node, description, default_value)
+        let directives = self.parse_directives()?;
+        let mut input_value = InputValueDefinitionNode::new(name_tok, type_node, description)?;
+        input_value.with_default_value(default_value);
+        input_value.with_directives(directives);
+        Ok(input_value)
     }
 
     fn parse_arguments_definition(&mut self) -> ParseResult<Option<ArgumentDefinitions>> {
@@ -64,7 +68,7 @@ impl<'i> AST<'i> {
                 }
                 let mut args: ArgumentDefinitions = Vec::new();
                 loop {
-                    args.push(self.parse_argument_definition()?);
+                    args.push(self.parse_input_value()?);
                     if let Some(_) = self.expect_optional_token(&Token::CloseParen(0,0,0)) {
                         break;
                     }
@@ -146,7 +150,7 @@ impl<'i> AST<'i> {
         let tok = self.unwrap_peeked_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match *val {
-                "type" | "enum" | "union" | "interface" => Ok(DefinitionNode::TypeSystem(
+                "type" | "enum" | "union" | "interface" | "input" => Ok(DefinitionNode::TypeSystem(
                     TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?
                     )
@@ -162,7 +166,7 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_type(&mut self, description: Description) -> Result<TypeDefinitionNode,  ParseError> {
+    fn parse_type(&mut self, description: Description) -> ParseResult<TypeDefinitionNode> {
         let tok = self.unwrap_next_token()?;
         if let Token::Name(_, _, _, val) = tok {
             match val {
@@ -184,6 +188,11 @@ impl<'i> AST<'i> {
                 "interface" => Ok(
                     TypeDefinitionNode::Interface(
                         self.parse_interface_type(description)?
+                    )
+                ),
+                "input" => Ok(
+                    TypeDefinitionNode::Input(
+                        self.parse_input_type(description)?
                     )
                 ),
                 _ => Err(ParseError::BadValue),
@@ -217,6 +226,14 @@ impl<'i> AST<'i> {
         interface.with_directives(directives);
         interface.with_fields(fields);
         Ok(interface)
+    }
+
+    fn parse_input_type(&mut self, description: Description) -> ParseResult<InputTypeDefinitionNode> {
+        let name_tok = self.expect_token(Token::Name(0,0,0,""))?;
+        let mut input_type = InputTypeDefinitionNode::new(name_tok, description)?;
+        let fields = self.parse_input_fields()?;
+        input_type.with_fields(fields);
+        Ok(input_type)
     }
 
     fn parse_enum_type(&mut self, description: Description) -> ParseResult<EnumTypeDefinitionNode> {
@@ -306,6 +323,22 @@ impl<'i> AST<'i> {
             );
         }
         Ok(field_type)
+    }
+
+    fn parse_input_fields(&mut self) -> ParseResult<Vec<InputValueDefinitionNode>> {
+        let mut fields: Vec<InputValueDefinitionNode> = Vec::new();
+        self.expect_token(Token::OpenBrace(0,0,0))?;
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(0,0,0)) {
+                break;
+            }
+            fields.push(self.parse_input_value()?);
+        }
+        if !fields.is_empty() {
+            Ok(fields)
+        } else {
+            Err(ParseError::ObjectEmpty)
+        }
     }
 
     fn parse_enum_values(&mut self) -> ParseResult<Vec<EnumValueDefinitionNode>> {
