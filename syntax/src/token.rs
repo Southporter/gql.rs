@@ -45,16 +45,26 @@ impl<'a> fmt::Display for Token<'a> {
     }
 }
 
-use std::cmp::{PartialEq, Eq};
+use std::cmp::{Eq, PartialEq};
 
 impl<'a> PartialEq for Token<'a> {
     fn eq(&self, other: &Token) -> bool {
         match self {
-            Token::Name(_, _, _, value) => matches!(other, Token::Name(_, _, _, value2) if *value2 == *value),
-            Token::Str(_, _, _, value) => matches!(other, Token::Str(_, _, _, value2) if *value2 == *value),
-            Token::BlockStr(_, _, _, value) => matches!(other, Token::BlockStr(_, _, _, value2) if *value2 == *value),
-            Token::Int(_, _, _, value) => matches!(other, Token::Int(_, _, _, value2) if value2 == value),
-            Token::Float(_, _, _, value) => matches!(other, Token::Float(_, _, _, value2) if value2 == value),
+            Token::Name(_, _, _, value) => {
+                matches!(other, Token::Name(_, _, _, value2) if *value2 == *value)
+            }
+            Token::Str(_, _, _, value) => {
+                matches!(other, Token::Str(_, _, _, value2) if *value2 == *value)
+            }
+            Token::BlockStr(_, _, _, value) => {
+                matches!(other, Token::BlockStr(_, _, _, value2) if *value2 == *value)
+            }
+            Token::Int(_, _, _, value) => {
+                matches!(other, Token::Int(_, _, _, value2) if value2 == value)
+            }
+            Token::Float(_, _, _, value) => {
+                matches!(other, Token::Float(_, _, _, value2) if value2 == value)
+            }
             _ => mem::discriminant(self) == mem::discriminant(other),
         }
     }
@@ -88,9 +98,8 @@ mod tests {
         assert!(Token::Float(0, 0, 0, 3.14) != Token::Float(3, 1, 4, 3.14159));
         assert!(Token::Name(0, 0, 0, "id") != Token::Name(3, 3, 3, "val"));
         assert!(Token::Str(0, 0, 0, "Comment") != Token::Str(1, 2, 1, "Your comment here"));
-        assert!(Token::BlockStr(0, 0, 0, "Comment") != Token::BlockStr(1, 2, 1, "Your comment here"));
+        assert!(
+            Token::BlockStr(0, 0, 0, "Comment") != Token::BlockStr(1, 2, 1, "Your comment here")
+        );
     }
 }
-
-
-
