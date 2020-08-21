@@ -1,5 +1,5 @@
-e gql.rs
-Purely GraphQL database written in Rust
+# gql.rs
+A purely GraphQL database written in Rust
 
 ![Rust](https://github.com/ssedrick/gql.rs/workflows/Rust/badge.svg)
 
