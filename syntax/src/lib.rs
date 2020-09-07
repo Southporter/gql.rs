@@ -5,6 +5,7 @@ pub mod error;
 pub mod lexer;
 mod nodes;
 pub mod token;
+mod validation;
 
 use ast::AST;
 use error::ParseResult;
@@ -516,5 +517,73 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                 ]
             }
         )
+    }
+
+    #[test]
+    fn parses_object_extension() {
+        let res = parse(
+            r#"extend type Obj implements Timestamped @addedDirective { createdOn: DateTime, updatedOn: DateTime }
+            extend type Admin implements Sudo & Root
+            extend type User @accessLevel
+            "#,
+        );
+        println!("res: {:?}", res);
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![
+                    DefinitionNode::Extension(TypeSystemExtensionNode::Object(
+                        ObjectTypeExtensionNode {
+                            description: None,
+                            name: NameNode::from("Obj"),
+                            interfaces: Some(vec![NamedTypeNode::from("Timestamped")]),
+                            directives: Some(vec![DirectiveNode {
+                                name: NameNode::from("addedDirective"),
+                                arguments: None,
+                            }]),
+                            fields: Some(vec![
+                                FieldDefinitionNode {
+                                    arguments: None,
+                                    description: None,
+                                    name: NameNode::from("createdOn"),
+                                    field_type: TypeNode::Named(NamedTypeNode::from("DateTime")),
+                                },
+                                FieldDefinitionNode {
+                                    arguments: None,
+                                    description: None,
+                                    name: NameNode::from("updatedOn"),
+                                    field_type: TypeNode::Named(NamedTypeNode::from("DateTime")),
+                                },
+                            ]),
+                        }
+                    )),
+                    DefinitionNode::Extension(TypeSystemExtensionNode::Object(
+                        ObjectTypeExtensionNode {
+                            description: None,
+                            name: NameNode::from("Admin"),
+                            interfaces: Some(vec![
+                                NamedTypeNode::from("Sudo"),
+                                NamedTypeNode::from("Root")
+                            ]),
+                            directives: None,
+                            fields: None,
+                        }
+                    )),
+                    DefinitionNode::Extension(TypeSystemExtensionNode::Object(
+                        ObjectTypeExtensionNode {
+                            description: None,
+                            name: NameNode::from("User"),
+                            interfaces: None,
+                            directives: Some(vec![DirectiveNode {
+                                name: NameNode::from("accessLevel"),
+                                arguments: None
+                            }]),
+                            fields: None,
+                        }
+                    ))
+                ],
+            }
+        );
     }
 }

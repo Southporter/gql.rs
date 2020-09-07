@@ -153,6 +153,9 @@ impl<'i> AST<'i> {
                         self.parse_type(description)?,
                     )))
                 }
+                "extend" => Ok(DefinitionNode::Extension(
+                    self.parse_type_extension(description)?,
+                )),
                 _ => Err(ParseError::BadValue),
             }
         } else {
@@ -193,6 +196,22 @@ impl<'i> AST<'i> {
         }
     }
 
+    fn parse_type_extension(
+        &mut self,
+        description: Description,
+    ) -> ParseResult<TypeSystemExtensionNode> {
+        self.unwrap_next_token()?; // Discard "extend"
+        match self.unwrap_next_token()? {
+            Token::Name(_, _, _, "type") => Ok(TypeSystemExtensionNode::Object(
+                self.parse_object_type_extension(description)?,
+            )),
+            tok => Err(ParseError::UnexpectedToken {
+                expected: String::from("Token::Name"),
+                received: tok.to_string().to_owned(),
+            }),
+        }
+    }
+
     fn parse_object_type(
         &mut self,
         description: Description,
@@ -206,6 +225,26 @@ impl<'i> AST<'i> {
         obj.with_interfaces(interfaces);
         obj.with_directives(directives);
         Ok(obj)
+    }
+
+    fn parse_object_type_extension(
+        &mut self,
+        description: Description,
+    ) -> ParseResult<ObjectTypeExtensionNode> {
+        let name_tok = self.unwrap_next_token()?;
+        let interfaces = self.parse_object_interfaces()?;
+        let directives = self.parse_directives()?;
+
+        let mut type_extension = ObjectTypeExtensionNode::new(name_tok, description)?;
+        type_extension.with_interfaces(interfaces);
+        type_extension.with_directives(directives);
+
+        if let Token::OpenBrace(_, _, _) = self.unwrap_peeked_token()? {
+            let fields = self.parse_fields()?;
+            type_extension.with_fields(fields);
+        }
+
+        Ok(type_extension)
     }
 
     fn parse_interface_type(
