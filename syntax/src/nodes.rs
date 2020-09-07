@@ -458,11 +458,15 @@ impl ValidNode for ObjectTypeExtensionNode {
 impl ValidExtensionNode<ObjectTypeDefinitionNode> for ObjectTypeExtensionNode {
     fn validate_extension(&self, original: Option<&ObjectTypeDefinitionNode>) -> ValidationResult {
         if let Some(obj) = original {
-            let res = validation::validate_extension_fields_against_original(self, obj)?;
+            validation::validate_extension_fields_against_original(self, obj)?;
             Ok(())
         } else {
             Err(ValidationError::new(
-                "Invalid Object Extension {}: No type of name {} in schema",
+                format!(
+                    "Invalid Object Extension {0}: No type of name {0} in schema",
+                    self.name.value
+                )
+                .as_str(),
             ))
         }
     }

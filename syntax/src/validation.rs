@@ -37,7 +37,7 @@ pub fn validate_extension_fields_against_original<E: NodeWithFields, O: NodeWith
 
         Err(ValidationError::new(
             format!(
-                "Invalid Object Extension: Cannot redefine field(s) {}",
+                "Invalid Extension: Cannot redefine field(s) {}",
                 conflicting_names
             )
             .as_str(),
