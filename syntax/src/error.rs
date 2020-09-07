@@ -14,3 +14,16 @@ pub enum ParseError {
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
+
+#[derive(Debug)]
+pub struct ValidationError {
+    pub message: String,
+}
+
+impl ValidationError {
+    pub fn new(message: &str) -> ValidationError {
+        ValidationError {
+            message: String::from(message),
+        }
+    }
+}
