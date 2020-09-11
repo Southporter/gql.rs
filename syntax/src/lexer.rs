@@ -1,33 +1,144 @@
+//! The [`Lexer`] is responsible for turning a string into a series of [`Token`]s. This includes all the
+//! rules for valid tokens and can throw errors if it encouters a unrecognized character or other
+//! logical issue.
+//!
+//! The [`Lexer`] is typically used as an [`Iterator`]`. It will generate tokens lazily. If an error
+//! is encountered, it will short circuit the token generation.
+//!
+//! A valid series of tokens will start and end with [`Start`] and [`End`] respectively.
+//! These tokens to not link to any character or string of characters in the input string, but are
+//! there for ergonomics.
+//!
+//! The [`Lexer`] will ignore all whitespace (tabs, spaces, newlines), as well as all commas. This is
+//! in accordance with the GraphQL Spec.
+//!
+//!
+//! # Examples
+//!
+//! Here is an example with a valid string.
+//!
+//! ```
+//! use syntax::lexer::Lexer;
+//! use syntax::token::Token;
+//!
+//! let mut lexer = Lexer::new(r#"
+//! schema Schema {
+//!   query: Query,
+//!   mutation: Mutation
+//! }
+//! "#);
+//! assert_eq!(lexer.next(), Some(Ok(Token::Start)));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(1, 2, 1, "schema"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(9, 2, 9, "Schema"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::OpenBrace(11, 2, 11))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(14, 3, 3, "query"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Colon(19, 3, 8))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(21, 3, 10, "Query"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(25, 4, 3, "mutation"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Colon(34, 4, 12))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(36, 4, 14, "Mutation"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::CloseBrace(38, 5, 1))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::End)));
+//! assert_eq!(lexer.next(), None);
+//! ```
+//!
+//! The lexer will respond as follows if it encounters an error:
+//!
+//! ```
+//! use syntax::lexer::{Lexer, LexError};
+//! use syntax::token::Token;
+//!
+//! let mut lexer = Lexer::new(r#""unmatched"#);
+//! assert_eq!(lexer.next(), Some(Ok(Token::Start)));
+//! assert_eq!(lexer.next(), Some(Err(LexError::UnmatchedQuote {
+//!   line: 1,
+//!   col: 2,
+//! })));
+//! assert_eq!(lexer.next(), None);
+//! ```
+//!
+//! [`LexError`]: enum.LexError.html
+//! [`Lexer`]: enum.Lexer.html
+//! [`Iterator`]: ../../std/iter/trait.Iterator.html
+//! [`Token`]: ../token/enum.Token.html
+//! [`Start`]: ../token/enum.Token.html#variant.Start
+//! [`End`]: ../token/enum.Token.html#variant.End
+//!
+//!
+
 use crate::token::Token;
 use regex::Regex;
 use std::iter::Iterator;
 use std::iter::Peekable;
 use std::str::CharIndices;
 
+/// Represents a symantic issue in the GraphQL string.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum LexErrorKind {
-    UnmatchQuote { line: usize, col: usize },
-    UnknownCharacter { line: usize, col: usize },
-    UnhandledCase,
-    UnexpectedCharacter { line: usize, col: usize },
-    UnableToConvert { line: usize, col: usize },
-    EOF { line: usize, col: usize }, // Custom(&'static str)
+pub enum LexError {
+    /// The Lexer encountered a `"` that was not paired
+    UnmatchedQuote {
+        /// Line number
+        line: usize,
+        /// Column number
+        col: usize,
+    },
+    /// The next character is not a valid GraphQL symbol
+    UnknownCharacter {
+        /// Line number
+        line: usize,
+        /// Column number
+        col: usize,
+    },
+    /// The following character is valid but was not expected in that order
+    UnexpectedCharacter {
+        /// Line number
+        line: usize,
+        /// Column number
+        col: usize,
+    },
+    /// An issue occured while trying to turn the string value into some other type
+    UnableToConvert {
+        /// Line number
+        line: usize,
+        /// Column number
+        col: usize,
+    },
+    /// The end of the file was encountered unexpectedly
+    EOF {
+        /// Line number
+        line: usize,
+        /// Column number
+        col: usize,
+    },
 }
 
+/// A Lexer is an iterator that takes an input GraphQL string and generates a series of [`Tokens`]` or
+/// [`error`]s.
+///
+///
+/// If an [`error`]occurs, then the Lexer ends iteration.
+///
+/// A Lexer will also keep track of its possition in the string. This allows for more robust
+/// messages about where in the string a certain token or error is.
+///
+/// [`Tokens`]: ../../token/enum.Token.html
+/// [`errors`]: ../enum.LexError.html
 #[derive(Debug)]
 pub struct Lexer<'a> {
     raw: &'a str,
     input: Peekable<CharIndices<'a>>,
     initialized: bool,
     ended: bool,
-    pub position: usize,
-    pub line: usize,
-    pub col: usize,
+    position: usize,
+    line: usize,
+    col: usize,
 }
 
-type LexerItem<'a> = Result<Token<'a>, LexErrorKind>;
+type LexerItem<'a> = Result<Token<'a>, LexError>;
 
 impl<'a> Lexer<'a> {
+    /// Creates a new lexer that passes over the provided input string.
+    /// The token series will
     pub fn new(input: &str) -> Lexer {
         Lexer {
             raw: input,
@@ -169,15 +280,21 @@ impl<'a> Lexer<'a> {
                                     self.line += newlines;
                                     Ok(tok)
                                 }
-                                None => Err(LexErrorKind::UnmatchQuote {
+                                None => {
+                                    self.ended = true;
+                                    Err(LexError::UnmatchedQuote {
+                                        line: self.line,
+                                        col: self.col + 1,
+                                    })
+                                }
+                            },
+                            None => {
+                                self.ended = true;
+                                Err(LexError::UnmatchedQuote {
                                     line: self.line,
                                     col: self.col + 1,
-                                }),
-                            },
-                            None => Err(LexErrorKind::UnmatchQuote {
-                                line: self.line,
-                                col: self.col + 1,
-                            }),
+                                })
+                            }
                         }
                     } else {
                         let init_pos = *index;
@@ -200,15 +317,21 @@ impl<'a> Lexer<'a> {
                                         self.raw.get(start_off..end_off).unwrap(),
                                     ))
                                 }
-                                None => Err(LexErrorKind::UnmatchQuote {
+                                None => {
+                                    self.ended = true;
+                                    Err(LexError::UnmatchedQuote {
+                                        line: self.line,
+                                        col: self.col + 1,
+                                    })
+                                }
+                            },
+                            None => {
+                                self.ended = true;
+                                Err(LexError::UnmatchedQuote {
                                     line: self.line,
                                     col: self.col + 1,
-                                }),
-                            },
-                            None => Err(LexErrorKind::UnmatchQuote {
-                                line: self.line,
-                                col: self.col + 1,
-                            }),
+                                })
+                            }
                         }
                     }
                 }
@@ -254,21 +377,30 @@ impl<'a> Lexer<'a> {
                                             self.advance_to(end);
                                             Ok(Token::Float(init_pos, self.line, cur_col, f))
                                         }
-                                        Err(_) => Err(LexErrorKind::UnableToConvert {
-                                            line: self.line,
-                                            col: self.col,
-                                        }),
+                                        Err(_) => {
+                                            self.ended = true;
+                                            Err(LexError::UnableToConvert {
+                                                line: self.line,
+                                                col: self.col,
+                                            })
+                                        }
                                     }
                                 }
-                                None => Err(LexErrorKind::UnableToConvert {
+                                None => {
+                                    self.ended = true;
+                                    Err(LexError::UnableToConvert {
+                                        line: self.line,
+                                        col: self.col,
+                                    })
+                                }
+                            },
+                            None => {
+                                self.ended = true;
+                                Err(LexError::UnexpectedCharacter {
                                     line: self.line,
                                     col: self.col,
-                                }),
-                            },
-                            None => Err(LexErrorKind::UnexpectedCharacter {
-                                line: self.line,
-                                col: self.col,
-                            }),
+                                })
+                            }
                         }
                     } else if INT.is_match_at(self.raw, *index) {
                         let init_pos = *index;
@@ -284,24 +416,24 @@ impl<'a> Lexer<'a> {
                                             self.advance_to(end);
                                             Ok(tok)
                                         }
-                                        Err(_) => Err(LexErrorKind::UnableToConvert {
+                                        Err(_) => Err(LexError::UnableToConvert {
                                             line: self.line,
                                             col: self.col,
                                         }),
                                     }
                                 }
-                                None => Err(LexErrorKind::UnknownCharacter {
+                                None => Err(LexError::UnknownCharacter {
                                     line: self.line,
                                     col: self.col,
                                 }),
                             },
-                            None => Err(LexErrorKind::UnexpectedCharacter {
+                            None => Err(LexError::UnexpectedCharacter {
                                 line: self.line,
                                 col: self.col,
                             }),
                         }
                     } else {
-                        Err(LexErrorKind::UnableToConvert {
+                        Err(LexError::UnableToConvert {
                             line: self.line,
                             col: self.col,
                         })
@@ -317,13 +449,13 @@ impl<'a> Lexer<'a> {
                         self.advance_n(3);
                         Ok(Token::Spread(cur_pos, self.line, cur_col))
                     } else {
-                        Err(LexErrorKind::UnexpectedCharacter {
+                        Err(LexError::UnexpectedCharacter {
                             line: self.line,
                             col: self.col,
                         })
                     }
                 }
-                _ => Err(LexErrorKind::UnknownCharacter {
+                _ => Err(LexError::UnknownCharacter {
                     line: self.line,
                     col: self.col,
                 }),
@@ -351,7 +483,9 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = LexerItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if !self.initialized {
+        if self.ended {
+            None
+        } else if !self.initialized {
             println!("Uninizialized");
             self.initialized = true;
             Some(Ok(Token::Start))
@@ -373,6 +507,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 /// Destruct the string into a Vec of tokens.
+///
 /// # Examples
 /// ```
 /// use syntax::lexer::tokenize;
@@ -384,9 +519,9 @@ impl<'a> Iterator for Lexer<'a> {
 /// assert!(tokens.is_ok());
 /// println!("Tokens: {:?}", tokens);
 /// ````
-pub fn tokenize<'a>(input: &'a str) -> Result<Vec<Token<'a>>, LexErrorKind> {
+pub fn tokenize<'a>(input: &'a str) -> Result<Vec<Token<'a>>, LexError> {
     let state = Lexer::new(input);
-    let results: Result<Vec<Token>, LexErrorKind> = state.collect();
+    let results: Result<Vec<Token>, LexError> = state.collect();
     results
 }
 
@@ -763,19 +898,19 @@ text""""#,
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexErrorKind::UnmatchQuote { line: 1, col: 2 }
+            LexError::UnmatchedQuote { line: 1, col: 2 }
         );
         let err = tokenize("\"\"\"test\n\n\"\"");
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexErrorKind::UnmatchQuote { line: 1, col: 2 }
+            LexError::UnmatchedQuote { line: 1, col: 2 }
         );
         let err = tokenize("\"\"\"test\ntest\ntest\"");
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexErrorKind::UnmatchQuote { line: 1, col: 2 }
+            LexError::UnmatchedQuote { line: 1, col: 2 }
         );
     }
 
@@ -785,7 +920,7 @@ text""""#,
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexErrorKind::UnknownCharacter { line: 1, col: 1 }
+            LexError::UnknownCharacter { line: 1, col: 1 }
         );
     }
 

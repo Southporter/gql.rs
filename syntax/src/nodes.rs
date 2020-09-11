@@ -368,13 +368,17 @@ impl ObjectTypeDefinitionNode {
         description: Description,
         fields: Vec<FieldDefinitionNode>,
     ) -> ParseResult<Self> {
-        Ok(ObjectTypeDefinitionNode {
-            description,
-            name: NameNode::new(tok)?,
-            interfaces: None,
-            directives: None,
-            fields,
-        })
+        if !fields.is_empty() {
+            Ok(ObjectTypeDefinitionNode {
+                description,
+                name: NameNode::new(tok)?,
+                interfaces: None,
+                directives: None,
+                fields,
+            })
+        } else {
+            Err(ParseError::ObjectEmpty)
+        }
     }
 
     pub fn with_interfaces(&mut self, interfaces: Option<Vec<NamedTypeNode>>) -> &mut Self {
@@ -597,16 +601,6 @@ pub enum DefinitionNode {
     // Executable(ExecutableDefinitionNode),
     TypeSystem(TypeSystemDefinitionNode),
     Extension(TypeSystemExtensionNode),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Document {
-    pub definitions: Vec<DefinitionNode>,
-}
-impl Document {
-    pub fn new(definitions: Vec<DefinitionNode>) -> Document {
-        Document { definitions }
-    }
 }
 
 #[cfg(test)]

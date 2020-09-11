@@ -1,6 +1,21 @@
+//! [![github]](https://github.com/ssedrick/gql.rs)
+//!
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//!
+//! <br>
+//!
+//! A syntax package for GraphQL parsing and manipulation tokens into a GraphQL Document.
+//! This package adheres to the [GraphQL Spec](http://spec.graphql.org/June2018/).
+//!
+//!
+
+#![warn(missing_docs, trivial_casts, trivial_numeric_casts, unstable_features)]
+#![forbid(unsafe_code)]
+
 #[macro_use]
 extern crate lazy_static;
-pub mod ast;
+mod ast;
+pub mod document;
 pub mod error;
 pub mod lexer;
 mod nodes;
@@ -8,8 +23,8 @@ pub mod token;
 mod validation;
 
 use ast::AST;
+use document::Document;
 use error::ParseResult;
-use nodes::Document;
 
 /// Parse a string into a GraphQL Document.
 /// This is a potentially heavy, synchronous operation.
@@ -321,7 +336,7 @@ union Pic =
     #[test]
     fn parses_object_with_interface() {
         println!("Parsing object with interface");
-        let res = parse(r#"type Obj implements Named & Sort & Filter {}"#);
+        let res = parse(r#"type Obj implements Named & Sort & Filter { id: ID }"#);
         println!("res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(
@@ -337,7 +352,12 @@ union Pic =
                             NamedTypeNode::from("Filter"),
                         ]),
                         directives: None,
-                        fields: vec![],
+                        fields: vec![FieldDefinitionNode {
+                            description: None,
+                            arguments: None,
+                            name: NameNode::from("id"),
+                            field_type: TypeNode::Named(NamedTypeNode::from("ID")),
+                        }],
                     })
                 ))]
             }
@@ -347,7 +367,7 @@ union Pic =
     #[test]
     fn parses_object_with_directives() {
         println!("Parsing object with directives");
-        let res = parse(r#"type Obj @depricated @old(allow: false) {}"#);
+        let res = parse(r#"type Obj @depricated @old(allow: false) { id: ID }"#);
         println!("res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(
@@ -371,7 +391,12 @@ union Pic =
                                 }])
                             },
                         ]),
-                        fields: vec![],
+                        fields: vec![FieldDefinitionNode {
+                            description: None,
+                            arguments: None,
+                            name: NameNode::from("id"),
+                            field_type: TypeNode::Named(NamedTypeNode::from("ID")),
+                        }],
                     })
                 ))]
             }

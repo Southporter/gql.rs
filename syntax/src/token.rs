@@ -1,37 +1,79 @@
-// (position, line, col, value)
+//! Tokens represent parts of the string as they are parsed.
+//!
+//! Some simply point to the position in the input string where they reside. Others will contain a
+//! value based on what was parsed. The [`Start`] and [`End`] tokens represent the beginning and
+//! end of the string respectively and do not correlate to an character in the input string.
+//!
+//! [`Start`]: enum.Token.html#variant.Start
+//! [`End`]: enum.Token.html#variant.End
+//!
+//!
+
+/// Enumeration of the possible tokens that can be found in a GraphQL String.
 #[derive(Debug, Clone)]
 pub enum Token<'a> {
+    // (position, line, col, value)
+    /// Represents the start of the token stream
     Start,
+    /// Represents the end of the token stream
     End,
+    /// Represents the `!` character and it's position
     Bang(usize, usize, usize),
+    /// Represents the `$` character and it's position
     Dollar(usize, usize, usize),
+    /// Represents the `&` character and it's position
     Amp(usize, usize, usize),
-    OpenParen(usize, usize, usize),
-    CloseParen(usize, usize, usize),
+    /// Represents the `...` series of characters and it's position
     Spread(usize, usize, usize),
+    /// Represents the `:` character and it's position
     Colon(usize, usize, usize),
+    /// Represents the `=` character and it's position
     Equals(usize, usize, usize),
+    /// Represents the `@` character and it's position
     At(usize, usize, usize),
+    /// Represents the `(` character and it's position
+    OpenParen(usize, usize, usize),
+    /// Represents the `)` character and it's position
+    CloseParen(usize, usize, usize),
+    /// Represents the `[` character and it's position
     OpenSquare(usize, usize, usize),
+    /// Represents the `]` character and it's position
     CloseSquare(usize, usize, usize),
+    /// Represents the `{` character and it's position
     OpenBrace(usize, usize, usize),
+    /// Represents the `}` character and it's position
     CloseBrace(usize, usize, usize),
+    /// Represents the `|` character and it's position
     Pipe(usize, usize, usize),
+    /// Represents a series of alphanumeric and/or `_` characters. These characters are NOT
+    /// surrouned in quotes.
     Name(usize, usize, usize, &'a str),
+    /// Represents an parsed integer and it's location in the string
     Int(usize, usize, usize, i64),
+    /// Represents an parsed float and it's location in the string
     Float(usize, usize, usize, f64),
+    /// Represents a quoted series of characters. These characters can be any valid unicode
+    /// character. It will capture all characters within a pair of double quotes
     Str(usize, usize, usize, &'a str),
+    /// Represents a triple quoted series of characters. These characters can be any valid unicode
+    /// character. It will capture all characters within a pair of triple double quotes (i.e. """A BlockStr is in here""")
     BlockStr(usize, usize, usize, &'a str),
+    /// Represents a GraphQL Comment string.
     Comment(usize, usize, usize, &'a str),
 }
 
 use std::mem;
 
 impl<'a> Token<'a> {
-    pub fn new() -> Token<'a> {
-        Token::Start
-    }
-
+    /// Helper function to determine if to tokens are of the same
+    /// Enum variant.
+    ///
+    /// ```
+    /// use syntax::token::Token;
+    ///
+    /// assert!(Token::Start.is_same_type(&Token::Start));
+    /// assert!(!Token::Start.is_same_type(&Token::End));
+    /// ```
     pub fn is_same_type(&self, other: &Token) -> bool {
         return mem::discriminant(self) == mem::discriminant(other);
     }

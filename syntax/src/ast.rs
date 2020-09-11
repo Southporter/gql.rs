@@ -1,3 +1,4 @@
+use crate::document::Document;
 use crate::error::{ParseError, ParseResult};
 use crate::lexer::Lexer;
 use crate::nodes::*;
