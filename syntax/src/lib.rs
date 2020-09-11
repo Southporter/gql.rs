@@ -9,8 +9,8 @@
 //!
 //!
 
-#![warn(missing_docs, trivial_casts, trivial_numeric_casts, unstable_features)]
-#![forbid(unsafe_code)]
+#![warn(trivial_casts, trivial_numeric_casts, unstable_features)]
+#![forbid(unsafe_code, missing_docs)]
 
 #[macro_use]
 extern crate lazy_static;
