@@ -19,7 +19,7 @@
 //!
 //! ```
 //! use syntax::lexer::Lexer;
-//! use syntax::token::Token;
+//! use syntax::token::{Token, Location};
 //!
 //! let mut lexer = Lexer::new(r#"
 //! schema Schema {
@@ -28,16 +28,16 @@
 //! }
 //! "#);
 //! assert_eq!(lexer.next(), Some(Ok(Token::Start)));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Name(1, 2, 1, "schema"))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Name(9, 2, 9, "Schema"))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::OpenBrace(11, 2, 11))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Name(14, 3, 3, "query"))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Colon(19, 3, 8))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Name(21, 3, 10, "Query"))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Name(25, 4, 3, "mutation"))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Colon(34, 4, 12))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::Name(36, 4, 14, "Mutation"))));
-//! assert_eq!(lexer.next(), Some(Ok(Token::CloseBrace(38, 5, 1))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(Location::new(1, 2, 1), "schema"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(Location::new(9, 2, 9), "Schema"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::OpenBrace(Location::new(11, 2, 11)))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(Location::new(14, 3, 3), "query"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Colon(Location::new(19, 3, 8)))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(Location::new(21, 3, 10), "Query"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(Location::new(25, 4, 3), "mutation"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Colon(Location::new(34, 4, 12)))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::Name(Location::new(36, 4, 14), "Mutation"))));
+//! assert_eq!(lexer.next(), Some(Ok(Token::CloseBrace(Location::new(38, 5, 1)))));
 //! assert_eq!(lexer.next(), Some(Ok(Token::End)));
 //! assert_eq!(lexer.next(), None);
 //! ```
@@ -46,14 +46,15 @@
 //!
 //! ```
 //! use syntax::lexer::{Lexer, LexError};
-//! use syntax::token::Token;
+//! use syntax::token::{Token, Location};
 //!
 //! let mut lexer = Lexer::new(r#""unmatched"#);
 //! assert_eq!(lexer.next(), Some(Ok(Token::Start)));
-//! assert_eq!(lexer.next(), Some(Err(LexError::UnmatchedQuote {
+//! assert_eq!(lexer.next(), Some(Err(LexError::UnmatchedQuote(Location {
+//!   absolute_position: 0,
 //!   line: 1,
-//!   col: 2,
-//! })));
+//!   column: 2,
+//! }))));
 //! assert_eq!(lexer.next(), None);
 //! ```
 //!
@@ -66,7 +67,7 @@
 //!
 //!
 
-use crate::token::Token;
+use crate::token::{Location, Token};
 use regex::Regex;
 use std::iter::Iterator;
 use std::iter::Peekable;
@@ -76,40 +77,15 @@ use std::str::CharIndices;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum LexError {
     /// The Lexer encountered a `"` that was not paired
-    UnmatchedQuote {
-        /// Line number
-        line: usize,
-        /// Column number
-        col: usize,
-    },
+    UnmatchedQuote(Location),
     /// The next character is not a valid GraphQL symbol
-    UnknownCharacter {
-        /// Line number
-        line: usize,
-        /// Column number
-        col: usize,
-    },
+    UnknownCharacter(Location),
     /// The following character is valid but was not expected in that order
-    UnexpectedCharacter {
-        /// Line number
-        line: usize,
-        /// Column number
-        col: usize,
-    },
+    UnexpectedCharacter(Location),
     /// An issue occured while trying to turn the string value into some other type
-    UnableToConvert {
-        /// Line number
-        line: usize,
-        /// Column number
-        col: usize,
-    },
+    UnableToConvert(Location),
     /// The end of the file was encountered unexpectedly
-    EOF {
-        /// Line number
-        line: usize,
-        /// Column number
-        col: usize,
-    },
+    EOF,
 }
 
 /// A Lexer is an iterator that takes an input GraphQL string and generates a series of [`Tokens`]` or
@@ -151,6 +127,296 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn get_next_token(&mut self) -> LexerItem<'a> {
+        if let Some((i, next)) = self.input.peek() {
+            let index = *i;
+            match next {
+                '!' => self.lex_bang(),
+                '$' => self.lex_dollar(),
+                '&' => self.lex_ampersand(),
+                '|' => self.lex_pipe(),
+                '@' => self.lex_at(),
+                ':' => self.lex_colon(),
+                '=' => self.lex_equals(),
+                '{' => self.lex_open_brace(),
+                '}' => self.lex_close_brace(),
+                '(' => self.lex_open_paren(),
+                ')' => self.lex_close_paren(),
+                '[' => self.lex_open_square(),
+                ']' => self.lex_close_square(),
+                ' ' | '\t' | ',' => self.ignore_whitespace(),
+                '\n' => self.ignore_newline(),
+                '"' => self.lex_string(index),
+                // TODO Make this multilingual
+                'a'..='z' | 'A'..='Z' => self.lex_name(index),
+                // TODO Make this handle scientific notation
+                '1'..='9' | '-' => self.lex_number(index),
+                '.' => self.lex_ellipsis(index),
+                _ => self.make_unknown_character_error(),
+            }
+        } else {
+            // This occurs when we have hit an extra newline at the end of the file
+            self.ended = true;
+            Ok(Token::End)
+        }
+    }
+
+    fn lex_ellipsis(&mut self, index: usize) -> LexerItem<'a> {
+        lazy_static! {
+            static ref SPREAD: Regex = Regex::new("...").unwrap();
+        }
+        if SPREAD.is_match_at(self.raw, index) {
+            let cur_col = self.col;
+            let cur_pos = self.position;
+            self.advance_n(3);
+            Ok(Token::Spread(Location::new(cur_pos, self.line, cur_col)))
+        } else {
+            self.make_unexpected_character_error()
+        }
+    }
+
+    fn lex_number(&mut self, init_pos: usize) -> LexerItem<'a> {
+        lazy_static! {
+            static ref FLOAT: Regex = Regex::new(r#"-?[0-9]+\.[0-9]+"#).unwrap();
+            static ref INT: Regex = Regex::new(r#"-?[0-9]+"#).unwrap();
+        }
+        if FLOAT.is_match_at(self.raw, init_pos) {
+            let mut locations = FLOAT.capture_locations();
+            match FLOAT.captures_read_at(&mut locations, self.raw, init_pos) {
+                Some(_) => match locations.get(0) {
+                    Some((start, end)) => {
+                        let cur_col = self.col;
+                        let substr = self.raw.get(start..end).unwrap();
+                        match substr.parse::<f64>() {
+                            Ok(f) => {
+                                self.advance_to(end);
+                                Ok(Token::Float(Location::new(init_pos, self.line, cur_col), f))
+                            }
+                            Err(_) => self.make_conversion_error(),
+                        }
+                    }
+                    None => self.make_unknown_character_error(),
+                },
+                None => self.make_unexpected_character_error(),
+            }
+        } else if INT.is_match_at(self.raw, init_pos) {
+            let mut locations = INT.capture_locations();
+            match INT.captures_read_at(&mut locations, self.raw, init_pos) {
+                Some(_) => match locations.get(0) {
+                    Some((start, end)) => {
+                        let substr = self.raw.get(start..end).unwrap();
+                        match substr.parse::<i64>() {
+                            Ok(i) => {
+                                let tok = Token::Int(self.get_current_location(), i);
+                                self.advance_to(end);
+                                Ok(tok)
+                            }
+                            Err(_) => self.make_conversion_error(),
+                        }
+                    }
+                    None => self.make_unknown_character_error(),
+                },
+                None => self.make_unexpected_character_error(),
+            }
+        } else {
+            self.make_conversion_error()
+        }
+    }
+
+    fn lex_name(&mut self, init_pos: usize) -> LexerItem<'a> {
+        let mut end_pos = 0;
+        while let Some((_, c)) = self.input.peek() {
+            if c.is_alphanumeric() || *c == '_' {
+                self.input.next();
+                end_pos += 1;
+            } else {
+                break;
+            }
+        }
+        self.position += end_pos;
+        let init_col = self.col;
+        self.col += end_pos;
+        end_pos += init_pos;
+        Ok(Token::Name(
+            Location::new(init_pos, self.line, init_col),
+            self.raw.get(init_pos..end_pos).unwrap(),
+        ))
+    }
+
+    fn lex_string(&mut self, init_pos: usize) -> LexerItem<'a> {
+        lazy_static! {
+            static ref BLOCK_START: Regex = Regex::new(r#"""""#).unwrap();
+            static ref BLOCK: Regex = Regex::new(r#""""((?:\\.|[^"\\])*)""""#).unwrap();
+            static ref SINGLE: Regex = Regex::new(r#""((?:\\.|[^"\\])*)""#).unwrap();
+        }
+        if BLOCK_START.is_match_at(self.raw, init_pos) {
+            let mut locations = BLOCK.capture_locations();
+            match BLOCK.captures_read_at(&mut locations, self.raw, init_pos) {
+                Some(_) => match locations.get(1) {
+                    Some((start_off, end_off)) => {
+                        let (start, end) = locations.get(0).unwrap();
+                        match self.input.position(|(i, _)| i == end) {
+                            Some(pos) => self.position = pos,
+                            None => (),
+                        }
+                        let tok = Token::BlockStr(
+                            Location::new(start, self.line, self.col),
+                            self.raw.get(start_off..end_off).unwrap(),
+                        );
+
+                        let substr = self.raw.get(start..end).unwrap();
+                        let newlines = substr.lines().count();
+                        self.line += newlines;
+                        Ok(tok)
+                    }
+                    None => self.make_unmatched_quote_error(),
+                },
+                None => self.make_unmatched_quote_error(),
+            }
+        } else {
+            let mut locations = SINGLE.capture_locations();
+            match SINGLE.captures_read_at(&mut locations, self.raw, init_pos) {
+                Some(_) => match locations.get(1) {
+                    Some((start_off, end_off)) => {
+                        let cur_col = self.col;
+                        match self.input.position(|(i, _)| i == end_off) {
+                            Some(pos) => {
+                                self.position += pos + 1;
+                                self.col += pos + 1;
+                            }
+                            None => (),
+                        }
+                        Ok(Token::Str(
+                            Location::new(init_pos, self.line, cur_col),
+                            self.raw.get(start_off..end_off).unwrap(),
+                        ))
+                    }
+                    None => self.make_unmatched_quote_error(),
+                },
+                None => self.make_unmatched_quote_error(),
+            }
+        }
+    }
+
+    fn lex_bang(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::Bang(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_dollar(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::Dollar(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_ampersand(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::Amp(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_pipe(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::Pipe(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_at(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::At(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_close_square(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::CloseSquare(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_open_square(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::OpenSquare(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_close_paren(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::CloseParen(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_open_paren(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::OpenParen(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_close_brace(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::CloseBrace(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_open_brace(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::OpenBrace(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_equals(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::Equals(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn lex_colon(&mut self) -> LexerItem<'a> {
+        let tok = Ok(Token::Colon(self.get_current_location()));
+        self.advance();
+        tok
+    }
+
+    fn ignore_newline(&mut self) -> LexerItem<'a> {
+        self.line += 1;
+        self.col = 1;
+        self.position += 1;
+        self.input.next();
+        self.get_next_token()
+    }
+
+    fn ignore_whitespace(&mut self) -> LexerItem<'a> {
+        self.advance();
+        self.get_next_token()
+    }
+
+    fn make_unexpected_character_error(&mut self) -> LexerItem<'a> {
+        self.ended = true;
+        Err(LexError::UnexpectedCharacter(self.get_current_location()))
+    }
+
+    fn make_conversion_error(&mut self) -> LexerItem<'a> {
+        self.ended = true;
+        Err(LexError::UnableToConvert(self.get_current_location()))
+    }
+
+    fn make_unknown_character_error(&mut self) -> LexerItem<'a> {
+        self.ended = true;
+        Err(LexError::UnknownCharacter(self.get_current_location()))
+    }
+
+    fn make_unmatched_quote_error(&mut self) -> LexerItem<'a> {
+        self.ended = true;
+        Err(LexError::UnmatchedQuote(Location::new(
+            self.position,
+            self.line,
+            self.col + 1,
+        )))
+    }
+
+    fn get_current_location(&mut self) -> Location {
+        Location::new(self.position, self.line, self.col)
+    }
+
     fn advance(&mut self) {
         self.input.next();
         self.position += 1;
@@ -168,303 +434,6 @@ impl<'a> Lexer<'a> {
         self.position = pos;
         self.col = pos;
         self.input.position(|(i, _)| i == pos - 1);
-    }
-    // TODO Move the body of the match arms into methods here
-    //
-
-    fn get_next_token(&mut self) -> LexerItem<'a> {
-        if let Some((index, next)) = self.input.peek() {
-            match next {
-                '!' => {
-                    let tok = Ok(Token::Bang(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '$' => {
-                    let tok = Ok(Token::Dollar(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '&' => {
-                    let tok = Ok(Token::Amp(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '|' => {
-                    let tok = Ok(Token::Pipe(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '@' => {
-                    let tok = Ok(Token::At(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                ':' => {
-                    let tok = Ok(Token::Colon(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '=' => {
-                    let tok = Ok(Token::Equals(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '{' => {
-                    let tok = Ok(Token::OpenBrace(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '}' => {
-                    let tok = Ok(Token::CloseBrace(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '(' => {
-                    let tok = Ok(Token::OpenParen(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                ')' => {
-                    let tok = Ok(Token::CloseParen(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                '[' => {
-                    let tok = Ok(Token::OpenSquare(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                ']' => {
-                    let tok = Ok(Token::CloseSquare(self.position, self.line, self.col));
-                    self.advance();
-                    tok
-                }
-                ' ' | '\t' | ',' => {
-                    self.advance();
-                    self.get_next_token()
-                }
-                '\n' => {
-                    self.line += 1;
-                    self.col = 1;
-                    self.position += 1;
-                    self.input.next();
-                    self.get_next_token()
-                }
-                '"' => {
-                    lazy_static! {
-                        static ref BLOCK_START: Regex = Regex::new(r#"""""#).unwrap();
-                        static ref BLOCK: Regex = Regex::new(r#""""((?:\\.|[^"\\])*)""""#).unwrap();
-                        static ref SINGLE: Regex = Regex::new(r#""((?:\\.|[^"\\])*)""#).unwrap();
-                    }
-                    if BLOCK_START.is_match_at(self.raw, *index) {
-                        let init_pos = *index;
-                        let mut locations = BLOCK.capture_locations();
-                        match BLOCK.captures_read_at(&mut locations, self.raw, init_pos) {
-                            Some(_) => match locations.get(1) {
-                                Some((start_off, end_off)) => {
-                                    let (start, end) = locations.get(0).unwrap();
-                                    match self.input.position(|(i, _)| i == end) {
-                                        Some(pos) => self.position = pos,
-                                        None => (),
-                                    }
-                                    let tok = Token::BlockStr(
-                                        start,
-                                        self.line,
-                                        self.col,
-                                        self.raw.get(start_off..end_off).unwrap(),
-                                    );
-
-                                    let substr = self.raw.get(start..end).unwrap();
-                                    let newlines = substr.lines().count();
-                                    self.line += newlines;
-                                    Ok(tok)
-                                }
-                                None => {
-                                    self.ended = true;
-                                    Err(LexError::UnmatchedQuote {
-                                        line: self.line,
-                                        col: self.col + 1,
-                                    })
-                                }
-                            },
-                            None => {
-                                self.ended = true;
-                                Err(LexError::UnmatchedQuote {
-                                    line: self.line,
-                                    col: self.col + 1,
-                                })
-                            }
-                        }
-                    } else {
-                        let init_pos = *index;
-                        let mut locations = SINGLE.capture_locations();
-                        match SINGLE.captures_read_at(&mut locations, self.raw, init_pos) {
-                            Some(_) => match locations.get(1) {
-                                Some((start_off, end_off)) => {
-                                    let cur_col = self.col;
-                                    match self.input.position(|(i, _)| i == end_off) {
-                                        Some(pos) => {
-                                            self.position += pos + 1;
-                                            self.col += pos + 1;
-                                        }
-                                        None => (),
-                                    }
-                                    Ok(Token::Str(
-                                        init_pos,
-                                        self.line,
-                                        cur_col,
-                                        self.raw.get(start_off..end_off).unwrap(),
-                                    ))
-                                }
-                                None => {
-                                    self.ended = true;
-                                    Err(LexError::UnmatchedQuote {
-                                        line: self.line,
-                                        col: self.col + 1,
-                                    })
-                                }
-                            },
-                            None => {
-                                self.ended = true;
-                                Err(LexError::UnmatchedQuote {
-                                    line: self.line,
-                                    col: self.col + 1,
-                                })
-                            }
-                        }
-                    }
-                }
-                // TODO Make this multilingual
-                'a'..='z' | 'A'..='Z' => {
-                    let init_pos = *index;
-                    let mut end_pos = 0;
-                    while let Some((_, c)) = self.input.peek() {
-                        if c.is_alphanumeric() || *c == '_' {
-                            self.input.next();
-                            end_pos += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                    self.position += end_pos;
-                    let init_col = self.col;
-                    self.col += end_pos;
-                    end_pos += init_pos;
-                    Ok(Token::Name(
-                        init_pos,
-                        self.line,
-                        init_col,
-                        self.raw.get(init_pos..end_pos).unwrap(),
-                    ))
-                }
-                // TODO Make this handle scientific notation
-                '1'..='9' | '-' => {
-                    lazy_static! {
-                        static ref FLOAT: Regex = Regex::new(r#"-?[0-9]+\.[0-9]+"#).unwrap();
-                        static ref INT: Regex = Regex::new(r#"-?[0-9]+"#).unwrap();
-                    }
-                    if FLOAT.is_match_at(self.raw, *index) {
-                        let init_pos = *index;
-                        let mut locations = FLOAT.capture_locations();
-                        match FLOAT.captures_read_at(&mut locations, self.raw, init_pos) {
-                            Some(_) => match locations.get(0) {
-                                Some((start, end)) => {
-                                    let cur_col = self.col;
-                                    let substr = self.raw.get(start..end).unwrap();
-                                    match substr.parse::<f64>() {
-                                        Ok(f) => {
-                                            self.advance_to(end);
-                                            Ok(Token::Float(init_pos, self.line, cur_col, f))
-                                        }
-                                        Err(_) => {
-                                            self.ended = true;
-                                            Err(LexError::UnableToConvert {
-                                                line: self.line,
-                                                col: self.col,
-                                            })
-                                        }
-                                    }
-                                }
-                                None => {
-                                    self.ended = true;
-                                    Err(LexError::UnableToConvert {
-                                        line: self.line,
-                                        col: self.col,
-                                    })
-                                }
-                            },
-                            None => {
-                                self.ended = true;
-                                Err(LexError::UnexpectedCharacter {
-                                    line: self.line,
-                                    col: self.col,
-                                })
-                            }
-                        }
-                    } else if INT.is_match_at(self.raw, *index) {
-                        let init_pos = *index;
-                        let mut locations = INT.capture_locations();
-                        match INT.captures_read_at(&mut locations, self.raw, init_pos) {
-                            Some(_) => match locations.get(0) {
-                                Some((start, end)) => {
-                                    let substr = self.raw.get(start..end).unwrap();
-                                    match substr.parse::<i64>() {
-                                        Ok(i) => {
-                                            let tok =
-                                                Token::Int(self.position, self.line, self.col, i);
-                                            self.advance_to(end);
-                                            Ok(tok)
-                                        }
-                                        Err(_) => Err(LexError::UnableToConvert {
-                                            line: self.line,
-                                            col: self.col,
-                                        }),
-                                    }
-                                }
-                                None => Err(LexError::UnknownCharacter {
-                                    line: self.line,
-                                    col: self.col,
-                                }),
-                            },
-                            None => Err(LexError::UnexpectedCharacter {
-                                line: self.line,
-                                col: self.col,
-                            }),
-                        }
-                    } else {
-                        Err(LexError::UnableToConvert {
-                            line: self.line,
-                            col: self.col,
-                        })
-                    }
-                }
-                '.' => {
-                    lazy_static! {
-                        static ref SPREAD: Regex = Regex::new("...").unwrap();
-                    }
-                    if SPREAD.is_match_at(self.raw, *index) {
-                        let cur_col = self.col;
-                        let cur_pos = self.position;
-                        self.advance_n(3);
-                        Ok(Token::Spread(cur_pos, self.line, cur_col))
-                    } else {
-                        Err(LexError::UnexpectedCharacter {
-                            line: self.line,
-                            col: self.col,
-                        })
-                    }
-                }
-                _ => Err(LexError::UnknownCharacter {
-                    line: self.line,
-                    col: self.col,
-                }),
-            }
-        } else {
-            // This occurs when we have hit an extra newline at the end of the file
-            self.ended = true;
-            Ok(Token::End)
-        }
     }
 }
 
@@ -519,7 +488,7 @@ impl<'a> Iterator for Lexer<'a> {
 /// assert!(tokens.is_ok());
 /// println!("Tokens: {:?}", tokens);
 /// ````
-pub fn tokenize<'a>(input: &'a str) -> Result<Vec<Token<'a>>, LexError> {
+pub fn tokenize(input: &str) -> Result<Vec<Token>, LexError> {
     let state = Lexer::new(input);
     let results: Result<Vec<Token>, LexError> = state.collect();
     results
@@ -544,7 +513,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Bang(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::Bang(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -555,7 +528,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Dollar(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::Dollar(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -566,7 +543,7 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Amp(0, 1, 1), Token::End,]
+            vec![Token::Start, Token::Amp(Location::new(0, 1, 1)), Token::End,]
         );
     }
 
@@ -577,7 +554,7 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::At(0, 1, 1), Token::End,]
+            vec![Token::Start, Token::At(Location::new(0, 1, 1)), Token::End,]
         );
     }
 
@@ -588,7 +565,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Pipe(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::Pipe(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -599,7 +580,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Colon(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::Colon(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -610,7 +595,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Equals(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::Equals(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -621,7 +610,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::OpenBrace(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::OpenBrace(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
     #[test]
@@ -631,7 +624,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::CloseBrace(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::CloseBrace(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -642,7 +639,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::OpenParen(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::OpenParen(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
     #[test]
@@ -652,7 +653,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::CloseParen(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::CloseParen(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -663,7 +668,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::OpenSquare(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::OpenSquare(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
     #[test]
@@ -673,7 +682,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::CloseSquare(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::CloseSquare(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -685,7 +698,11 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Spread(0, 1, 1), Token::End,]
+            vec![
+                Token::Start,
+                Token::Spread(Location::new(0, 1, 1)),
+                Token::End,
+            ]
         );
     }
 
@@ -696,13 +713,21 @@ mod tests {
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Int(0, 1, 1, 123456i64), Token::End,]
+            vec![
+                Token::Start,
+                Token::Int(Location::new(0, 1, 1), 123456i64),
+                Token::End,
+            ]
         );
         let one = tokenize("-9876");
         assert!(one.is_ok());
         assert_eq!(
             one.unwrap(),
-            vec![Token::Start, Token::Int(0, 1, 1, -9876i64), Token::End,]
+            vec![
+                Token::Start,
+                Token::Int(Location::new(0, 1, 1), -9876i64),
+                Token::End,
+            ]
         );
     }
 
@@ -715,7 +740,7 @@ mod tests {
             one.unwrap(),
             vec![
                 Token::Start,
-                Token::Float(0, 1, 1, 1.23456789f64),
+                Token::Float(Location::new(0, 1, 1), 1.23456789f64),
                 Token::End,
             ]
         );
@@ -725,7 +750,7 @@ mod tests {
             one.unwrap(),
             vec![
                 Token::Start,
-                Token::Float(0, 1, 1, -0.987654321f64),
+                Token::Float(Location::new(0, 1, 1), -0.987654321f64),
                 Token::End,
             ]
         );
@@ -738,7 +763,11 @@ mod tests {
         assert!(text.is_ok());
         assert_eq!(
             text.unwrap(),
-            vec![Token::Start, Token::Str(0, 1, 1, "text"), Token::End,]
+            vec![
+                Token::Start,
+                Token::Str(Location::new(0, 1, 1), "text"),
+                Token::End,
+            ]
         );
     }
 
@@ -755,7 +784,7 @@ text""""#,
             text.unwrap(),
             vec![
                 Token::Start,
-                Token::BlockStr(0, 1, 1, "test\n\ntext"),
+                Token::BlockStr(Location::new(0, 1, 1), "test\n\ntext"),
                 Token::End,
             ]
         );
@@ -770,8 +799,8 @@ text""""#,
             text.unwrap(),
             vec![
                 Token::Start,
-                Token::Name(0, 1, 1, "name"),
-                Token::Name(5, 2, 1, "name_with_underscore"),
+                Token::Name(Location::new(0, 1, 1), "name"),
+                Token::Name(Location::new(5, 2, 1), "name_with_underscore"),
                 Token::End,
             ]
         );
@@ -795,22 +824,22 @@ text""""#,
             query.unwrap(),
             vec![
                 Token::Start,
-                Token::Name(0, 1, 1, "query"),
-                Token::OpenBrace(6, 1, 7),
-                Token::Name(10, 2, 3, "hero"),
-                Token::OpenBrace(15, 2, 8),
-                Token::Name(21, 3, 5, "name"),
-                Token::CloseBrace(28, 4, 3),
-                Token::Name(32, 5, 3, "droid"),
-                Token::OpenParen(37, 5, 8),
-                Token::Name(38, 5, 9, "id"),
-                Token::Colon(40, 5, 11),
-                Token::Str(42, 5, 13, "2000"),
-                Token::CloseParen(48, 5, 19),
-                Token::OpenBrace(50, 5, 21),
-                Token::Name(56, 6, 5, "name"),
-                Token::CloseBrace(63, 7, 3),
-                Token::CloseBrace(65, 8, 1),
+                Token::Name(Location::new(0, 1, 1), "query"),
+                Token::OpenBrace(Location::new(6, 1, 7)),
+                Token::Name(Location::new(10, 2, 3), "hero"),
+                Token::OpenBrace(Location::new(15, 2, 8)),
+                Token::Name(Location::new(21, 3, 5), "name"),
+                Token::CloseBrace(Location::new(28, 4, 3)),
+                Token::Name(Location::new(32, 5, 3), "droid"),
+                Token::OpenParen(Location::new(37, 5, 8)),
+                Token::Name(Location::new(38, 5, 9), "id"),
+                Token::Colon(Location::new(40, 5, 11)),
+                Token::Str(Location::new(42, 5, 13), "2000"),
+                Token::CloseParen(Location::new(48, 5, 19)),
+                Token::OpenBrace(Location::new(50, 5, 21)),
+                Token::Name(Location::new(56, 6, 5), "name"),
+                Token::CloseBrace(Location::new(63, 7, 3)),
+                Token::CloseBrace(Location::new(65, 8, 1)),
                 Token::End,
             ]
         )
@@ -831,27 +860,27 @@ text""""#,
             t.unwrap(),
             vec![
                 Token::Start,
-                Token::Name(0, 1, 1, "type"),
-                Token::Name(5, 1, 6, "Query"),
-                Token::OpenBrace(11, 1, 12),
-                Token::Name(15, 2, 3, "hero"),
-                Token::OpenParen(19, 2, 7),
-                Token::Name(20, 2, 8, "episode"),
-                Token::Colon(27, 2, 15),
-                Token::Name(29, 2, 17, "Episode"),
-                Token::CloseParen(36, 2, 24),
-                Token::Colon(37, 2, 25),
-                Token::Name(39, 2, 27, "Character"),
-                Token::Name(51, 3, 3, "droid"),
-                Token::OpenParen(56, 3, 8),
-                Token::Name(57, 3, 9, "id"),
-                Token::Colon(59, 3, 11),
-                Token::Name(61, 3, 13, "ID"),
-                Token::Bang(63, 3, 15),
-                Token::CloseParen(64, 3, 16),
-                Token::Colon(65, 3, 17),
-                Token::Name(67, 3, 19, "Droid"),
-                Token::CloseBrace(73, 4, 1),
+                Token::Name(Location::new(0, 1, 1), "type"),
+                Token::Name(Location::new(5, 1, 6), "Query"),
+                Token::OpenBrace(Location::new(11, 1, 12)),
+                Token::Name(Location::new(15, 2, 3), "hero"),
+                Token::OpenParen(Location::new(19, 2, 7)),
+                Token::Name(Location::new(20, 2, 8), "episode"),
+                Token::Colon(Location::new(27, 2, 15)),
+                Token::Name(Location::new(29, 2, 17), "Episode"),
+                Token::CloseParen(Location::new(36, 2, 24)),
+                Token::Colon(Location::new(37, 2, 25)),
+                Token::Name(Location::new(39, 2, 27), "Character"),
+                Token::Name(Location::new(51, 3, 3), "droid"),
+                Token::OpenParen(Location::new(56, 3, 8)),
+                Token::Name(Location::new(57, 3, 9), "id"),
+                Token::Colon(Location::new(59, 3, 11)),
+                Token::Name(Location::new(61, 3, 13), "ID"),
+                Token::Bang(Location::new(63, 3, 15)),
+                Token::CloseParen(Location::new(64, 3, 16)),
+                Token::Colon(Location::new(65, 3, 17)),
+                Token::Name(Location::new(67, 3, 19), "Droid"),
+                Token::CloseBrace(Location::new(73, 4, 1)),
                 Token::End,
             ]
         )
@@ -874,19 +903,19 @@ text""""#,
             fragment.unwrap(),
             vec![
                 Token::Start,
-                Token::Name(0, 1, 1, "query"),
-                Token::OpenBrace(6, 1, 7),
-                Token::Name(10, 2, 3, "hero"),
-                Token::OpenBrace(15, 2, 8),
-                Token::Name(21, 3, 5, "name"),
-                Token::Spread(30, 4, 5),
-                Token::Name(34, 4, 9, "on"),
-                Token::Name(37, 4, 12, "Human"),
-                Token::OpenBrace(43, 4, 18),
-                Token::Name(51, 5, 7, "height"),
-                Token::CloseBrace(62, 6, 5),
-                Token::CloseBrace(66, 7, 3),
-                Token::CloseBrace(68, 8, 1),
+                Token::Name(Location::new(0, 1, 1), "query"),
+                Token::OpenBrace(Location::new(6, 1, 7)),
+                Token::Name(Location::new(10, 2, 3), "hero"),
+                Token::OpenBrace(Location::new(15, 2, 8)),
+                Token::Name(Location::new(21, 3, 5), "name"),
+                Token::Spread(Location::new(30, 4, 5)),
+                Token::Name(Location::new(34, 4, 9), "on"),
+                Token::Name(Location::new(37, 4, 12), "Human"),
+                Token::OpenBrace(Location::new(43, 4, 18)),
+                Token::Name(Location::new(51, 5, 7), "height"),
+                Token::CloseBrace(Location::new(62, 6, 5)),
+                Token::CloseBrace(Location::new(66, 7, 3)),
+                Token::CloseBrace(Location::new(68, 8, 1)),
                 Token::End,
             ]
         );
@@ -898,19 +927,19 @@ text""""#,
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexError::UnmatchedQuote { line: 1, col: 2 }
+            LexError::UnmatchedQuote(Location::new(0, 1, 2))
         );
         let err = tokenize("\"\"\"test\n\n\"\"");
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexError::UnmatchedQuote { line: 1, col: 2 }
+            LexError::UnmatchedQuote(Location::new(0, 1, 2))
         );
         let err = tokenize("\"\"\"test\ntest\ntest\"");
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexError::UnmatchedQuote { line: 1, col: 2 }
+            LexError::UnmatchedQuote(Location::new(0, 1, 2))
         );
     }
 
@@ -920,7 +949,7 @@ text""""#,
         assert!(err.is_err());
         assert_eq!(
             err.unwrap_err(),
-            LexError::UnknownCharacter { line: 1, col: 1 }
+            LexError::UnknownCharacter(Location::new(0, 1, 1))
         );
     }
 
@@ -938,11 +967,11 @@ text""""#,
             query.unwrap(),
             vec![
                 Token::Start,
-                Token::OpenBrace(0, 1, 1),
-                Token::Name(4, 2, 3, "one"),
-                Token::Name(10, 3, 3, "two"),
-                Token::Name(17, 4, 3, "three"),
-                Token::CloseBrace(26, 5, 1),
+                Token::OpenBrace(Location::new(0, 1, 1)),
+                Token::Name(Location::new(4, 2, 3), "one"),
+                Token::Name(Location::new(10, 3, 3), "two"),
+                Token::Name(Location::new(17, 4, 3), "three"),
+                Token::CloseBrace(Location::new(26, 5, 1)),
                 Token::End,
             ]
         );
@@ -969,22 +998,20 @@ type Obj {
             vec![
                 Token::Start,
                 Token::BlockStr(
-                    1,
-                    2,
-                    1,
+                    Location::new(1, 2, 1),
                     r#"
 This is a generic object comment
 They can be multiple lines
 "#
                 ),
-                Token::Name(70, 6, 1, "type"),
-                Token::Name(75, 6, 6, "Obj"),
-                Token::OpenBrace(79, 6, 10),
-                Token::Str(83, 7, 3, "This is the name of the object"),
-                Token::Name(108, 8, 3, "name"),
-                Token::Colon(112, 8, 7),
-                Token::Name(114, 8, 9, "String"),
-                Token::CloseBrace(121, 9, 1),
+                Token::Name(Location::new(70, 6, 1), "type"),
+                Token::Name(Location::new(75, 6, 6), "Obj"),
+                Token::OpenBrace(Location::new(79, 6, 10)),
+                Token::Str(Location::new(83, 7, 3), "This is the name of the object"),
+                Token::Name(Location::new(108, 8, 3), "name"),
+                Token::Colon(Location::new(112, 8, 7)),
+                Token::Name(Location::new(114, 8, 9), "String"),
+                Token::CloseBrace(Location::new(121, 9, 1)),
                 Token::End,
             ]
         );
@@ -1010,11 +1037,11 @@ And a final multiline string
             strings.unwrap(),
             vec![
                 Token::Start,
-                Token::BlockStr(1, 2, 1, "\nThis is a multiline string\n"),
-                Token::Name(36, 5, 1, "name"),
-                Token::BlockStr(41, 6, 1, "Followed by a single line"),
-                Token::Name(73, 7, 1, "id"),
-                Token::BlockStr(76, 8, 1, "\nAnd a final multiline string\n"),
+                Token::BlockStr(Location::new(1, 2, 1), "\nThis is a multiline string\n"),
+                Token::Name(Location::new(36, 5, 1), "name"),
+                Token::BlockStr(Location::new(41, 6, 1), "Followed by a single line"),
+                Token::Name(Location::new(73, 7, 1), "id"),
+                Token::BlockStr(Location::new(76, 8, 1), "\nAnd a final multiline string\n"),
                 Token::End,
             ]
         )

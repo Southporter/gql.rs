@@ -9,6 +9,37 @@
 //!
 //!
 
+/// Contains the information on the location of a lexer error relative to the input string.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Location {
+    /// The absolute position in the string. Disregards lines and columns.
+    pub absolute_position: usize,
+    /// The line number
+    pub line: usize,
+    /// The column of the line
+    pub column: usize,
+}
+
+impl Location {
+    /// Creates a new location based on the provided data
+    pub fn new(pos: usize, line: usize, column: usize) -> Self {
+        Location {
+            absolute_position: pos,
+            line,
+            column,
+        }
+    }
+
+    /// Creates a default location. Used as a placeholder in a lot of the parser code.
+    pub fn default() -> Self {
+        Location {
+            absolute_position: 0,
+            line: 0,
+            column: 0,
+        }
+    }
+}
+
 /// Enumeration of the possible tokens that can be found in a GraphQL String.
 #[derive(Debug, Clone)]
 pub enum Token<'a> {
@@ -18,48 +49,48 @@ pub enum Token<'a> {
     /// Represents the end of the token stream
     End,
     /// Represents the `!` character and it's position
-    Bang(usize, usize, usize),
+    Bang(Location),
     /// Represents the `$` character and it's position
-    Dollar(usize, usize, usize),
+    Dollar(Location),
     /// Represents the `&` character and it's position
-    Amp(usize, usize, usize),
+    Amp(Location),
     /// Represents the `...` series of characters and it's position
-    Spread(usize, usize, usize),
+    Spread(Location),
     /// Represents the `:` character and it's position
-    Colon(usize, usize, usize),
+    Colon(Location),
     /// Represents the `=` character and it's position
-    Equals(usize, usize, usize),
+    Equals(Location),
     /// Represents the `@` character and it's position
-    At(usize, usize, usize),
+    At(Location),
     /// Represents the `(` character and it's position
-    OpenParen(usize, usize, usize),
+    OpenParen(Location),
     /// Represents the `)` character and it's position
-    CloseParen(usize, usize, usize),
+    CloseParen(Location),
     /// Represents the `[` character and it's position
-    OpenSquare(usize, usize, usize),
+    OpenSquare(Location),
     /// Represents the `]` character and it's position
-    CloseSquare(usize, usize, usize),
+    CloseSquare(Location),
     /// Represents the `{` character and it's position
-    OpenBrace(usize, usize, usize),
+    OpenBrace(Location),
     /// Represents the `}` character and it's position
-    CloseBrace(usize, usize, usize),
+    CloseBrace(Location),
     /// Represents the `|` character and it's position
-    Pipe(usize, usize, usize),
+    Pipe(Location),
     /// Represents a series of alphanumeric and/or `_` characters. These characters are NOT
     /// surrouned in quotes.
-    Name(usize, usize, usize, &'a str),
+    Name(Location, &'a str),
     /// Represents an parsed integer and it's location in the string
-    Int(usize, usize, usize, i64),
+    Int(Location, i64),
     /// Represents an parsed float and it's location in the string
-    Float(usize, usize, usize, f64),
+    Float(Location, f64),
     /// Represents a quoted series of characters. These characters can be any valid unicode
     /// character. It will capture all characters within a pair of double quotes
-    Str(usize, usize, usize, &'a str),
+    Str(Location, &'a str),
     /// Represents a triple quoted series of characters. These characters can be any valid unicode
     /// character. It will capture all characters within a pair of triple double quotes (i.e. """A BlockStr is in here""")
-    BlockStr(usize, usize, usize, &'a str),
+    BlockStr(Location, &'a str),
     /// Represents a GraphQL Comment string.
-    Comment(usize, usize, usize, &'a str),
+    Comment(Location, &'a str),
 }
 
 use std::mem;
@@ -92,21 +123,13 @@ use std::cmp::{Eq, PartialEq};
 impl<'a> PartialEq for Token<'a> {
     fn eq(&self, other: &Token) -> bool {
         match self {
-            Token::Name(_, _, _, value) => {
-                matches!(other, Token::Name(_, _, _, value2) if *value2 == *value)
+            Token::Name(_, value) => matches!(other, Token::Name(_, value2) if *value2 == *value),
+            Token::Str(_, value) => matches!(other, Token::Str(_, value2) if *value2 == *value),
+            Token::BlockStr(_, value) => {
+                matches!(other, Token::BlockStr(_, value2) if *value2 == *value)
             }
-            Token::Str(_, _, _, value) => {
-                matches!(other, Token::Str(_, _, _, value2) if *value2 == *value)
-            }
-            Token::BlockStr(_, _, _, value) => {
-                matches!(other, Token::BlockStr(_, _, _, value2) if *value2 == *value)
-            }
-            Token::Int(_, _, _, value) => {
-                matches!(other, Token::Int(_, _, _, value2) if value2 == value)
-            }
-            Token::Float(_, _, _, value) => {
-                matches!(other, Token::Float(_, _, _, value2) if value2 == value)
-            }
+            Token::Int(_, value) => matches!(other, Token::Int(_, value2) if value2 == value),
+            Token::Float(_, value) => matches!(other, Token::Float(_, value2) if value2 == value),
             _ => mem::discriminant(self) == mem::discriminant(other),
         }
     }
@@ -120,28 +143,69 @@ mod tests {
 
     #[test]
     fn compare_type() {
-        assert!(Token::Start == Token::Start);
-        assert!(Token::End != Token::Start);
-        assert!(Token::Bang(0, 0, 0) == Token::Bang(12, 2, 3));
-        assert!(Token::Amp(0, 0, 0) != Token::Float(0, 0, 0, 0.0));
-        assert!(Token::Dollar(0, 0, 0) != Token::OpenBrace(0, 1, 1));
-        assert!(Token::Int(0, 0, 0, 0) != Token::Float(0, 0, 0, 0.0));
+        assert_eq!(Token::Start, Token::Start);
+        assert_ne!(Token::End, Token::Start);
+
+        assert_eq!(
+            Token::Bang(Location::new(0, 0, 0)),
+            Token::Bang(Location::new(12, 2, 3))
+        );
+        assert_ne!(
+            Token::Amp(Location::new(0, 0, 0)),
+            Token::Float(Location::new(0, 0, 0), 0.0)
+        );
+        assert_ne!(
+            Token::Dollar(Location::new(0, 0, 0)),
+            Token::OpenBrace(Location::new(0, 1, 1))
+        );
+        assert_ne!(
+            Token::Int(Location::new(0, 0, 0), 0),
+            Token::Float(Location::new(0, 0, 0), 0.0)
+        );
     }
 
     #[test]
     fn compare_value() {
-        assert!(Token::Int(0, 0, 0, 10) == Token::Int(12, 3, 14, 10));
-        assert!(Token::Float(0, 0, 0, 3.14) == Token::Float(3, 1, 4, 3.14));
-        assert!(Token::Name(0, 0, 0, "id") == Token::Name(3, 3, 3, "id"));
-        assert!(Token::Str(0, 0, 0, "Comment") == Token::Str(1, 2, 1, "Comment"));
-        assert!(Token::BlockStr(0, 0, 0, "Comment") == Token::BlockStr(1, 2, 1, "Comment"));
+        assert_eq!(
+            Token::Int(Location::new(0, 0, 0), 10),
+            Token::Int(Location::new(12, 3, 14), 10)
+        );
+        assert_eq!(
+            Token::Float(Location::new(0, 0, 0), 3.14),
+            Token::Float(Location::new(3, 1, 4), 3.14)
+        );
+        assert_eq!(
+            Token::Name(Location::new(0, 0, 0), "id"),
+            Token::Name(Location::new(3, 3, 3), "id")
+        );
+        assert_eq!(
+            Token::Str(Location::new(0, 0, 0), "Comment"),
+            Token::Str(Location::new(1, 2, 1), "Comment")
+        );
+        assert_eq!(
+            Token::BlockStr(Location::new(0, 0, 0), "Comment"),
+            Token::BlockStr(Location::new(1, 2, 1), "Comment")
+        );
 
-        assert!(Token::Int(0, 0, 0, 10) != Token::Int(12, 3, 14, 11));
-        assert!(Token::Float(0, 0, 0, 3.14) != Token::Float(3, 1, 4, 3.14159));
-        assert!(Token::Name(0, 0, 0, "id") != Token::Name(3, 3, 3, "val"));
-        assert!(Token::Str(0, 0, 0, "Comment") != Token::Str(1, 2, 1, "Your comment here"));
-        assert!(
-            Token::BlockStr(0, 0, 0, "Comment") != Token::BlockStr(1, 2, 1, "Your comment here")
+        assert_ne!(
+            Token::Int(Location::new(0, 0, 0), 10),
+            Token::Int(Location::new(12, 3, 14), 11)
+        );
+        assert_ne!(
+            Token::Float(Location::new(0, 0, 0), 3.14),
+            Token::Float(Location::new(3, 1, 4), 3.14159)
+        );
+        assert_ne!(
+            Token::Name(Location::new(0, 0, 0), "id"),
+            Token::Name(Location::new(3, 3, 3), "val")
+        );
+        assert_ne!(
+            Token::Str(Location::new(0, 0, 0), "Comment"),
+            Token::Str(Location::new(1, 2, 1), "Your comment here")
+        );
+        assert_ne!(
+            Token::BlockStr(Location::new(0, 0, 0), "Comment"),
+            Token::BlockStr(Location::new(1, 2, 1), "Your comment here")
         );
     }
 }

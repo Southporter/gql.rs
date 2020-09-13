@@ -19,7 +19,7 @@ impl NameNode {
     /// an error is thrown
     pub fn new(token: Token) -> ParseResult<NameNode> {
         match token {
-            Token::Name(_, _, _, value) => Ok(NameNode {
+            Token::Name(_, value) => Ok(NameNode {
                 value: value.to_owned(),
             }),
             _ => Err(ParseError::UnexpectedToken {
@@ -46,11 +46,11 @@ pub struct StringValueNode {
 impl StringValueNode {
     pub fn new(token: Token) -> ParseResult<StringValueNode> {
         match token {
-            Token::Str(_, _, _, val) => Ok(StringValueNode {
+            Token::Str(_, val) => Ok(StringValueNode {
                 value: val.to_owned(),
                 block: false,
             }),
-            Token::BlockStr(_, _, _, val) => Ok(StringValueNode {
+            Token::BlockStr(_, val) => Ok(StringValueNode {
                 value: val.to_owned(),
                 block: true,
             }),

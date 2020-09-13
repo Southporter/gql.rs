@@ -39,7 +39,7 @@ mod tests {
     use super::*;
     use crate::error::ParseError;
     use crate::nodes::*;
-    use crate::token::Token;
+    use crate::token::{Location, Token};
     use std::rc::Rc;
 
     #[test]
@@ -183,9 +183,7 @@ type Obj {
                     TypeDefinitionNode::Object(ObjectTypeDefinitionNode {
                         description: Some(
                             StringValueNode::new(Token::BlockStr(
-                                0,
-                                0,
-                                0,
+                                Location::default(),
                                 "\nThis is a generic object comment\nThey can be multiple lines\n"
                             ))
                             .unwrap()
@@ -198,9 +196,7 @@ type Obj {
                         fields: vec![FieldDefinitionNode {
                             description: Some(
                                 StringValueNode::new(Token::BlockStr(
-                                    0,
-                                    0,
-                                    0,
+                                    Location::default(),
                                     "This is the name of the object"
                                 ))
                                 .unwrap()
