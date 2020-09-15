@@ -47,7 +47,7 @@ impl<'i> AST<'i> {
     fn parse_input_value(&mut self) -> ParseResult<InputValueDefinitionNode> {
         let description = self.parse_description()?;
         let name_tok = self.unwrap_next_token()?;
-        self.expect_token(Token::Colon(Location::default()))?;
+        self.expect_token(Token::Colon(Location::ignored()))?;
         let type_node = self.parse_field_type()?;
         let default_value = self.parse_default_value()?;
         let directives = self.parse_directives()?;
@@ -58,9 +58,9 @@ impl<'i> AST<'i> {
     }
 
     fn parse_arguments_definition(&mut self) -> ParseResult<Option<ArgumentDefinitions>> {
-        match self.expect_optional_token(&Token::OpenParen(Location::default())) {
+        match self.expect_optional_token(&Token::OpenParen(Location::ignored())) {
             Some(_) => {
-                if let Some(_) = self.expect_optional_token(&Token::CloseParen(Location::default()))
+                if let Some(_) = self.expect_optional_token(&Token::CloseParen(Location::ignored()))
                 {
                     return Err(ParseError::ArgumentEmpty);
                 }
@@ -68,7 +68,7 @@ impl<'i> AST<'i> {
                 loop {
                     args.push(self.parse_input_value()?);
                     if let Some(_) =
-                        self.expect_optional_token(&Token::CloseParen(Location::default()))
+                        self.expect_optional_token(&Token::CloseParen(Location::ignored()))
                     {
                         break;
                     }
@@ -81,7 +81,7 @@ impl<'i> AST<'i> {
 
     fn parse_argument(&mut self) -> ParseResult<Argument> {
         let name = self.unwrap_next_token()?;
-        self.expect_token(Token::Colon(Location::default()))?;
+        self.expect_token(Token::Colon(Location::ignored()))?;
         let value = self.parse_value()?;
         Ok(Argument {
             name: NameNode::new(name)?,
@@ -90,12 +90,12 @@ impl<'i> AST<'i> {
     }
 
     fn parse_arguments(&mut self) -> ParseResult<Option<Arguments>> {
-        match self.expect_optional_token(&Token::OpenParen(Location::default())) {
+        match self.expect_optional_token(&Token::OpenParen(Location::ignored())) {
             Some(_) => {
                 let mut args: Arguments = Vec::new();
                 loop {
                     if let Some(_) =
-                        self.expect_optional_token(&Token::CloseParen(Location::default()))
+                        self.expect_optional_token(&Token::CloseParen(Location::ignored()))
                     {
                         if args.is_empty() {
                             return Err(ParseError::ArgumentEmpty);
@@ -111,7 +111,7 @@ impl<'i> AST<'i> {
     }
 
     fn parse_directive(&mut self) -> ParseResult<DirectiveNode> {
-        self.expect_token(Token::At(Location::default()))?;
+        self.expect_token(Token::At(Location::ignored()))?;
         let name = self.unwrap_next_token()?;
         let arguments = self.parse_arguments()?;
         Ok(DirectiveNode::new(name, arguments)?)
@@ -222,7 +222,7 @@ impl<'i> AST<'i> {
         &mut self,
         description: Description,
     ) -> ParseResult<ObjectTypeDefinitionNode> {
-        let name_tok = self.expect_token(Token::Name(Location::default(), ""))?;
+        let name_tok = self.expect_token(Token::Name(Location::ignored(), ""))?;
         let interfaces = self.parse_object_interfaces()?;
         let directives = self.parse_directives()?;
         let fields = self.parse_fields()?;
@@ -257,7 +257,7 @@ impl<'i> AST<'i> {
         &mut self,
         description: Description,
     ) -> ParseResult<InterfaceTypeDefinitionNode> {
-        let name_tok = self.expect_token(Token::Name(Location::default(), ""))?;
+        let name_tok = self.expect_token(Token::Name(Location::ignored(), ""))?;
         let directives = self.parse_directives()?;
         let fields = self.parse_fields()?;
 
@@ -271,7 +271,7 @@ impl<'i> AST<'i> {
         &mut self,
         description: Description,
     ) -> ParseResult<InputTypeDefinitionNode> {
-        let name_tok = self.expect_token(Token::Name(Location::default(), ""))?;
+        let name_tok = self.expect_token(Token::Name(Location::ignored(), ""))?;
         let mut input_type = InputTypeDefinitionNode::new(name_tok, description)?;
         let fields = self.parse_input_fields()?;
         input_type.with_fields(fields);
@@ -282,7 +282,7 @@ impl<'i> AST<'i> {
         &mut self,
         description: Description,
     ) -> ParseResult<ScalarTypeDefinitionNode> {
-        let name_tok = self.expect_token(Token::Name(Location::default(), ""))?;
+        let name_tok = self.expect_token(Token::Name(Location::ignored(), ""))?;
         let directives = self.parse_directives()?;
         let mut scalar_type = ScalarTypeDefinitionNode::new(name_tok, description)?;
         scalar_type.with_directives(directives);
@@ -290,10 +290,10 @@ impl<'i> AST<'i> {
     }
 
     fn parse_enum_type(&mut self, description: Description) -> ParseResult<EnumTypeDefinitionNode> {
-        let name_tok = self.expect_token(Token::Name(Location::default(), "enum"))?;
-        if name_tok == Token::Name(Location::default(), "true")
-            || name_tok == Token::Name(Location::default(), "false")
-            || name_tok == Token::Name(Location::default(), "null")
+        let name_tok = self.expect_token(Token::Name(Location::ignored(), "enum"))?;
+        if name_tok == Token::Name(Location::ignored(), "true")
+            || name_tok == Token::Name(Location::ignored(), "false")
+            || name_tok == Token::Name(Location::ignored(), "null")
         {
             return Err(ParseError::BadValue);
         }
@@ -311,9 +311,9 @@ impl<'i> AST<'i> {
         &mut self,
         description: Description,
     ) -> ParseResult<UnionTypeDefinitionNode> {
-        let name_tok = self.expect_token(Token::Name(Location::default(), "union"))?;
+        let name_tok = self.expect_token(Token::Name(Location::ignored(), "union"))?;
         let directives = self.parse_directives()?;
-        self.expect_token(Token::Equals(Location::default()))?;
+        self.expect_token(Token::Equals(Location::ignored()))?;
         let types = self.parse_union_types()?;
         Ok(UnionTypeDefinitionNode::new(
             name_tok,
@@ -324,15 +324,15 @@ impl<'i> AST<'i> {
     }
 
     fn parse_object_interfaces(&mut self) -> ParseResult<Option<Vec<NamedTypeNode>>> {
-        if let Some(name_tok) = self.expect_optional_token(&Token::Name(Location::default(), "")) {
+        if let Some(name_tok) = self.expect_optional_token(&Token::Name(Location::ignored(), "")) {
             match name_tok {
                 Token::Name(_, "implements") => {
                     let mut interface_names: Vec<NamedTypeNode> = Vec::new();
                     loop {
                         let interface_name =
-                            self.expect_token(Token::Name(Location::default(), ""))?;
+                            self.expect_token(Token::Name(Location::ignored(), ""))?;
                         interface_names.push(NamedTypeNode::new(interface_name)?);
-                        if let None = self.expect_optional_token(&Token::Amp(Location::default())) {
+                        if let None = self.expect_optional_token(&Token::Amp(Location::ignored())) {
                             break;
                         }
                     }
@@ -354,9 +354,9 @@ impl<'i> AST<'i> {
 
     fn parse_fields(&mut self) -> ParseResult<Vec<FieldDefinitionNode>> {
         let mut fields: Vec<FieldDefinitionNode> = Vec::new();
-        self.expect_token(Token::OpenBrace(Location::default()))?;
+        self.expect_token(Token::OpenBrace(Location::ignored()))?;
         loop {
-            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::default())) {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
                 break;
             }
             fields.push(self.parse_field()?);
@@ -366,25 +366,25 @@ impl<'i> AST<'i> {
 
     fn parse_field(&mut self) -> ParseResult<FieldDefinitionNode> {
         let description = self.parse_description()?;
-        let name = self.expect_token(Token::Name(Location::default(), ""))?;
+        let name = self.expect_token(Token::Name(Location::ignored(), ""))?;
         let arguments = self.parse_arguments_definition()?;
         println!("arguments, {:?}", arguments);
-        self.expect_token(Token::Colon(Location::default()))?;
+        self.expect_token(Token::Colon(Location::ignored()))?;
         let field_type = self.parse_field_type()?;
         FieldDefinitionNode::new(name, field_type, description, arguments)
     }
 
     fn parse_field_type(&mut self) -> ParseResult<TypeNode> {
         let mut field_type: TypeNode;
-        if let Some(_) = self.expect_optional_token(&Token::OpenSquare(Location::default())) {
+        if let Some(_) = self.expect_optional_token(&Token::OpenSquare(Location::ignored())) {
             field_type = TypeNode::List(ListTypeNode::new(self.parse_field_type()?));
-            self.expect_token(Token::CloseSquare(Location::default()))?;
+            self.expect_token(Token::CloseSquare(Location::ignored()))?;
         } else {
             field_type = TypeNode::Named(NamedTypeNode::new(
-                self.expect_token(Token::Name(Location::default(), ""))?,
+                self.expect_token(Token::Name(Location::ignored(), ""))?,
             )?);
         }
-        if let Some(_) = self.expect_optional_token(&Token::Bang(Location::default())) {
+        if let Some(_) = self.expect_optional_token(&Token::Bang(Location::ignored())) {
             field_type = TypeNode::NonNull(Rc::new(field_type));
         }
         Ok(field_type)
@@ -392,9 +392,9 @@ impl<'i> AST<'i> {
 
     fn parse_input_fields(&mut self) -> ParseResult<Vec<InputValueDefinitionNode>> {
         let mut fields: Vec<InputValueDefinitionNode> = Vec::new();
-        self.expect_token(Token::OpenBrace(Location::default()))?;
+        self.expect_token(Token::OpenBrace(Location::ignored()))?;
         loop {
-            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::default())) {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
                 break;
             }
             fields.push(self.parse_input_value()?);
@@ -408,13 +408,13 @@ impl<'i> AST<'i> {
 
     fn parse_enum_values(&mut self) -> ParseResult<Vec<EnumValueDefinitionNode>> {
         let mut values: Vec<EnumValueDefinitionNode> = Vec::new();
-        self.expect_token(Token::OpenBrace(Location::default()))?;
+        self.expect_token(Token::OpenBrace(Location::ignored()))?;
         loop {
-            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::default())) {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
                 break;
             }
             let description = self.parse_description()?;
-            let name = self.expect_token(Token::Name(Location::default(), ""))?;
+            let name = self.expect_token(Token::Name(Location::ignored(), ""))?;
             let directives = self.parse_directives()?;
             values.push(EnumValueDefinitionNode::new(name, description, directives)?);
         }
@@ -424,10 +424,10 @@ impl<'i> AST<'i> {
     fn parse_union_types(&mut self) -> ParseResult<Vec<NamedTypeNode>> {
         let mut types: Vec<NamedTypeNode> = Vec::new();
         // First Pipe is truely optional
-        self.expect_optional_token(&Token::Pipe(Location::default()));
+        self.expect_optional_token(&Token::Pipe(Location::ignored()));
         types.push(NamedTypeNode::new(self.unwrap_next_token()?)?);
         loop {
-            if let Some(_) = self.expect_optional_token(&Token::Pipe(Location::default())) {
+            if let Some(_) = self.expect_optional_token(&Token::Pipe(Location::ignored())) {
                 types.push(NamedTypeNode::new(self.unwrap_next_token()?)?);
             } else {
                 break;
@@ -437,7 +437,7 @@ impl<'i> AST<'i> {
     }
 
     fn parse_default_value(&mut self) -> ParseResult<Option<ValueNode>> {
-        match self.expect_optional_token(&Token::Equals(Location::default())) {
+        match self.expect_optional_token(&Token::Equals(Location::ignored())) {
             Some(_) => Ok(Some(self.parse_value()?)),
             None => Ok(None),
         }
@@ -491,10 +491,10 @@ impl<'i> AST<'i> {
     }
 
     fn parse_list_value(&mut self) -> ParseResult<ListValueNode> {
-        self.expect_token(Token::OpenSquare(Location::default()))?;
+        self.expect_token(Token::OpenSquare(Location::ignored()))?;
         let mut values: Vec<ValueNode> = Vec::new();
         loop {
-            if let Some(_) = self.expect_optional_token(&Token::CloseSquare(Location::default())) {
+            if let Some(_) = self.expect_optional_token(&Token::CloseSquare(Location::ignored())) {
                 break;
             }
             values.push(self.parse_value()?);
@@ -503,14 +503,14 @@ impl<'i> AST<'i> {
     }
 
     fn parse_object_value(&mut self) -> ParseResult<ObjectValueNode> {
-        self.expect_token(Token::OpenBrace(Location::default()))?;
+        self.expect_token(Token::OpenBrace(Location::ignored()))?;
         let mut fields: Vec<ObjectFieldNode> = Vec::new();
         loop {
-            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::default())) {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
                 break;
             }
             let name = self.unwrap_next_token()?;
-            self.expect_token(Token::Colon(Location::default()))?;
+            self.expect_token(Token::Colon(Location::ignored()))?;
             let value = self.parse_value()?;
             fields.push(ObjectFieldNode {
                 name: NameNode::new(name)?,
@@ -521,7 +521,7 @@ impl<'i> AST<'i> {
     }
 
     fn parse_variable(&mut self) -> ParseResult<VariableNode> {
-        self.expect_token(Token::Dollar(Location::default()))?;
+        self.expect_token(Token::Dollar(Location::ignored()))?;
         let name = self.unwrap_next_token()?;
         Ok(VariableNode {
             name: NameNode::new(name)?,
@@ -640,7 +640,7 @@ mod tests {
         assert_eq!(
             value.unwrap(),
             ValueNode::Str(
-                StringValueNode::new(Token::BlockStr(Location::default(), "BlockStrValue"))
+                StringValueNode::new(Token::BlockStr(Location::ignored(), "BlockStrValue"))
                     .unwrap()
             )
         );
@@ -655,7 +655,7 @@ mod tests {
         assert_eq!(
             value.unwrap(),
             ValueNode::Str(
-                StringValueNode::new(Token::Str(Location::default(), "StrValue")).unwrap()
+                StringValueNode::new(Token::Str(Location::ignored(), "StrValue")).unwrap()
             )
         );
     }
@@ -751,7 +751,7 @@ mod tests {
                     ObjectFieldNode {
                         name: NameNode::from("name"),
                         value: ValueNode::Str(
-                            StringValueNode::new(Token::Str(Location::default(), "Obj")).unwrap()
+                            StringValueNode::new(Token::Str(Location::ignored(), "Obj")).unwrap()
                         ),
                     }
                 ]

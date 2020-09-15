@@ -183,7 +183,7 @@ type Obj {
                     TypeDefinitionNode::Object(ObjectTypeDefinitionNode {
                         description: Some(
                             StringValueNode::new(Token::BlockStr(
-                                Location::default(),
+                                Location::ignored(),
                                 "\nThis is a generic object comment\nThey can be multiple lines\n"
                             ))
                             .unwrap()
@@ -196,7 +196,7 @@ type Obj {
                         fields: vec![FieldDefinitionNode {
                             description: Some(
                                 StringValueNode::new(Token::BlockStr(
-                                    Location::default(),
+                                    Location::ignored(),
                                     "This is the name of the object"
                                 ))
                                 .unwrap()

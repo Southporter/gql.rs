@@ -20,6 +20,12 @@ pub struct Location {
     pub column: usize,
 }
 
+const IGNORED_LOCATION: Location = Location {
+    absolute_position: 0,
+    line: 0,
+    column: 0,
+};
+
 impl Location {
     /// Creates a new location based on the provided data
     pub fn new(pos: usize, line: usize, column: usize) -> Self {
@@ -30,13 +36,9 @@ impl Location {
         }
     }
 
-    /// Creates a default location. Used as a placeholder in a lot of the parser code.
-    pub fn default() -> Self {
-        Location {
-            absolute_position: 0,
-            line: 0,
-            column: 0,
-        }
+    /// Creates a location that can be ignored. Used as a placeholder in parser code.
+    pub fn ignored() -> Self {
+        IGNORED_LOCATION
     }
 }
 
