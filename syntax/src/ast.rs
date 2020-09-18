@@ -2,6 +2,7 @@ use crate::document::Document;
 use crate::error::{ParseError, ParseResult};
 use crate::lexer::Lexer;
 use crate::nodes::*;
+use crate::nodes::object_type_extension::ObjectTypeExtensionNode;
 use crate::token::{Location, Token};
 use std::iter::{Iterator, Peekable};
 use std::rc::Rc;

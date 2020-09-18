@@ -39,6 +39,7 @@ mod tests {
     use super::*;
     use crate::error::ParseError;
     use crate::nodes::*;
+    use crate::nodes::object_type_extension::*;
     use crate::token::{Location, Token};
     use std::rc::Rc;
 

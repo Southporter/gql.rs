@@ -1,0 +1,20 @@
+name: GQL
+version: "1.0"
+author: "Shem Sedrick <ssedrick1@gmail.com"
+about: "A GraphQL native database"
+args:
+  - config:
+      short: c
+      long: config
+      value_name: FILE
+      help: "Set's the config file"
+  - protocols:
+      short: p
+      long: protocols
+      multiple: true
+      takes_value: true
+      possible_values:
+        - tcp
+        - udp
+        - ws
+        - rpc

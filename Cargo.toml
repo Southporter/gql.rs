@@ -1,4 +1,6 @@
 [workspace]
 members = [
+    "database",
+    "net",
     "syntax",
 ]

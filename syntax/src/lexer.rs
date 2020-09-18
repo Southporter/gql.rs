@@ -68,6 +68,7 @@
 //!
 
 use crate::token::{Location, Token};
+use log::debug;
 use regex::Regex;
 use std::iter::Iterator;
 use std::iter::Peekable;
@@ -150,7 +151,7 @@ impl<'a> Lexer<'a> {
                 // TODO Make this multilingual
                 'a'..='z' | 'A'..='Z' => self.lex_name(index),
                 // TODO Make this handle scientific notation
-                '1'..='9' | '-' => self.lex_number(index),
+                '0'..='9' | '-' => self.lex_number(index),
                 '.' => self.lex_ellipsis(index),
                 _ => self.make_unknown_character_error(),
             }
@@ -455,16 +456,16 @@ impl<'a> Iterator for Lexer<'a> {
         if self.ended {
             None
         } else if !self.initialized {
-            println!("Uninizialized");
+            debug!("Uninizialized");
             self.initialized = true;
             Some(Ok(Token::Start))
         } else if let Some(_) = self.input.peek() {
             let tok = self.get_next_token();
-            println!("Next Token: {:?}", tok);
-            println!("Next char: {:?}", self.input.peek());
+            debug!("Next Token: {:?}", tok);
+            debug!("Next char: {:?}", self.input.peek());
             Some(tok)
         } else {
-            println!("Found a None in the string: Ending? {}", self.ended);
+            debug!("Found a None in the string: Ending? {}", self.ended);
             if !self.ended {
                 self.ended = true;
                 Some(Ok(Token::End))
