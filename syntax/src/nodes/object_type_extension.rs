@@ -68,7 +68,7 @@ impl ValidExtensionNode<ObjectTypeDefinitionNode> for ObjectTypeExtensionNode {
                     "Invalid Object Extension {0}: No type of name {0} in schema",
                     self.name.value
                 )
-                    .as_str(),
+                .as_str(),
             ))
         }
     }
@@ -77,7 +77,6 @@ impl ValidExtensionNode<ObjectTypeDefinitionNode> for ObjectTypeExtensionNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use create::nodes::*;
 
     #[test]
     fn object_extenstion_validates() {

@@ -28,6 +28,7 @@ impl NameNode {
             _ => Err(ParseError::UnexpectedToken {
                 expected: String::from("Token<Name>"),
                 received: token.to_string().to_owned(),
+                location: token.location(),
             }),
         }
     }
@@ -60,6 +61,7 @@ impl StringValueNode {
             _ => Err(ParseError::UnexpectedToken {
                 expected: String::from("Token<Str> or Token<BlockStr>"),
                 received: token.to_string().to_owned(),
+                location: token.location(),
             }),
         }
     }
@@ -380,7 +382,7 @@ impl ObjectTypeDefinitionNode {
                 fields,
             })
         } else {
-            Err(ParseError::ObjectEmpty)
+            Err(ParseError::ObjectEmpty(tok.location()))
         }
     }
 
@@ -532,5 +534,3 @@ pub enum DefinitionNode {
     TypeSystem(TypeSystemDefinitionNode),
     Extension(TypeSystemExtensionNode),
 }
-
-

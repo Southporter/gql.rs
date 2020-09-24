@@ -5,4 +5,5 @@ authors = ["Shem Sedrick <ssedrick1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+syntax = { path = "../syntax" }
 

@@ -1,13 +1,37 @@
-use std::io;
+use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::thread;
 
-fn handle_connection(_stream: TcpStream) {}
+use syntax;
+
+fn handle_database_request(input: &str) -> String {
+    let res = syntax::parse(input);
+    match res {
+        Ok(document) => document.to_string(),
+        Err(parse_error) => parse_error.to_string(),
+    }
+}
+
+fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
+    let mut buffer = String::new();
+    if let Ok(_num_read) = stream.read_to_string(&mut buffer) {
+        let res = handle_database_request(&buffer);
+        stream.write_all(&res.into_bytes())
+    } else {
+        Ok(())
+    }
+}
 
 pub fn handle_tcp(port: u32) -> io::Result<()> {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port))?;
 
-    for stream in listener.incoming() {
-        handle_connection(stream?);
+    for incoming in listener.incoming() {
+        match incoming {
+            Ok(stream) => {
+                thread::spawn(move || handle_connection(stream));
+            }
+            Err(_) => {}
+        }
     }
 
     Ok(())

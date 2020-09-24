@@ -1,8 +1,8 @@
 use crate::document::Document;
 use crate::error::{ParseError, ParseResult};
 use crate::lexer::Lexer;
-use crate::nodes::*;
 use crate::nodes::object_type_extension::ObjectTypeExtensionNode;
+use crate::nodes::*;
 use crate::token::{Location, Token};
 use std::iter::{Iterator, Peekable};
 use std::rc::Rc;
@@ -61,9 +61,10 @@ impl<'i> AST<'i> {
     fn parse_arguments_definition(&mut self) -> ParseResult<Option<ArgumentDefinitions>> {
         match self.expect_optional_token(&Token::OpenParen(Location::ignored())) {
             Some(_) => {
-                if let Some(_) = self.expect_optional_token(&Token::CloseParen(Location::ignored()))
+                if let Some(token) =
+                    self.expect_optional_token(&Token::CloseParen(Location::ignored()))
                 {
-                    return Err(ParseError::ArgumentEmpty);
+                    return Err(ParseError::ArgumentEmpty(token.location()));
                 }
                 let mut args: ArgumentDefinitions = Vec::new();
                 loop {
@@ -95,11 +96,11 @@ impl<'i> AST<'i> {
             Some(_) => {
                 let mut args: Arguments = Vec::new();
                 loop {
-                    if let Some(_) =
+                    if let Some(token) =
                         self.expect_optional_token(&Token::CloseParen(Location::ignored()))
                     {
                         if args.is_empty() {
-                            return Err(ParseError::ArgumentEmpty);
+                            return Err(ParseError::ArgumentEmpty(token.location()));
                         }
                         break;
                     }
@@ -169,6 +170,7 @@ impl<'i> AST<'i> {
             Err(ParseError::UnexpectedToken {
                 expected: String::from("Token<Name>"),
                 received: tok.to_string().to_owned(),
+                location: tok.location(),
             })
         }
     }
@@ -199,6 +201,7 @@ impl<'i> AST<'i> {
             Err(ParseError::UnexpectedToken {
                 expected: String::from("Token::Name"),
                 received: tok.to_string().to_owned(),
+                location: tok.location(),
             })
         }
     }
@@ -215,6 +218,7 @@ impl<'i> AST<'i> {
             tok => Err(ParseError::UnexpectedToken {
                 expected: String::from("Token::Name"),
                 received: tok.to_string().to_owned(),
+                location: tok.location(),
             }),
         }
     }
@@ -342,10 +346,12 @@ impl<'i> AST<'i> {
                 Token::Name(_, keyword) => Err(ParseError::UnexpectedKeyword {
                     expected: String::from("implements"),
                     received: keyword.to_owned(),
+                    location: name_tok.location(),
                 }),
                 tok => Err(ParseError::UnexpectedToken {
                     expected: String::from("Token<Name>"),
                     received: tok.to_string(),
+                    location: tok.location(),
                 }),
             }
         } else {
@@ -393,7 +399,7 @@ impl<'i> AST<'i> {
 
     fn parse_input_fields(&mut self) -> ParseResult<Vec<InputValueDefinitionNode>> {
         let mut fields: Vec<InputValueDefinitionNode> = Vec::new();
-        self.expect_token(Token::OpenBrace(Location::ignored()))?;
+        let tok = self.expect_token(Token::OpenBrace(Location::ignored()))?;
         loop {
             if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
                 break;
@@ -403,7 +409,7 @@ impl<'i> AST<'i> {
         if !fields.is_empty() {
             Ok(fields)
         } else {
-            Err(ParseError::ObjectEmpty)
+            Err(ParseError::ObjectEmpty(tok.location()))
         }
     }
 
@@ -486,7 +492,8 @@ impl<'i> AST<'i> {
                 expected: String::from(
                     "One of (Name, Int, Float, Str, Dollar, OpenSquare, OpenBrace)",
                 ),
-                received: String::from(""),
+                received: tok.to_owned().to_string(),
+                location: tok.location(),
             }),
         }
     }
@@ -529,13 +536,6 @@ impl<'i> AST<'i> {
         })
     }
 
-    fn parse_error(&mut self, expected: String, received: Token) -> ParseError {
-        ParseError::UnexpectedToken {
-            expected,
-            received: received.to_string().to_owned(),
-        }
-    }
-
     fn expect_token(&mut self, tok: Token<'i>) -> ParseResult<Token<'i>> {
         if let Some(next) = self.lexer.next() {
             match next {
@@ -546,6 +546,7 @@ impl<'i> AST<'i> {
                         Err(ParseError::UnexpectedToken {
                             expected: tok.to_string(),
                             received: actual.to_string().to_owned(),
+                            location: actual.location(),
                         })
                     }
                 }

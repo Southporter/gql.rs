@@ -20,3 +20,10 @@ impl Document {
         Document { definitions }
     }
 }
+
+use std::fmt;
+impl fmt::Display for Document {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Document<{} definitions>", self.definitions.len())
+    }
+}
