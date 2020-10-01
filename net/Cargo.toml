@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 syntax = { path = "../syntax" }
+log = "0.4"
 

@@ -93,8 +93,6 @@ const UNKNOWN_CHARACTER_MESSAGE: &'static str = "Parse Error: Unknown character 
 const UNEXPECTED_CHARACTER_MESSAGE: &'static str = "Parse Error: Unexpected character found on";
 const UNABLE_TO_CONVERT_MESSAGE: &'static str = "Parse Error: Unable to convert value at";
 
-const UNKNOWN_ERROR_MESSAGE: &'static str = "Unknown error while parsing";
-
 impl LexError {
     fn get_message(&self) -> String {
         match self {
@@ -219,7 +217,6 @@ impl ParseError {
                 expected,
                 received,
             ),
-            _ => String::from(UNKNOWN_ERROR_MESSAGE),
         }
     }
 }
