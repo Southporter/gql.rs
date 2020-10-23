@@ -15,9 +15,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let clap_yaml = load_yaml!("../config/cli.yaml");
     let matches = App::from_yaml(clap_yaml).get_matches();
 
-    // let config_file = matches
-    //     .value_of("config")
-    //     .unwrap_or("../config/default.yaml");
     let logging_config_file = matches
         .value_of("log_config")
         .unwrap_or("database/config/logging.yaml");
@@ -47,7 +44,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         match protocol {
             "tcp" => {
                 let handle = runtime.handle();
-                let join_handle = handle.spawn_blocking(move || handlers::handle_tcp(9874));
+                let join_handle = handle.spawn(async move { handlers::handle_tcp(9874).await });
                 sockets.push(join_handle);
             }
             _ => println!("Protocol not supported: {}", protocol),

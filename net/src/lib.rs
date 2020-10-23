@@ -1,4 +1,7 @@
+mod connection;
 pub mod handlers;
+mod message;
+pub mod tcp;
 
 #[cfg(test)]
 mod tests {
