@@ -1,6 +1,8 @@
 use crate::message::Message;
 use bytes::{BufMut, BytesMut};
-use tokio::io::{self, AsyncRead, AsyncWrite, BufReader, BufWriter, ReadHalf, WriteHalf};
+use tokio::io::{
+    self, AsyncRead, AsyncReadExt, AsyncWrite, BufReader, BufWriter, ReadHalf, WriteHalf,
+};
 
 pub struct Connection<T> {
     reader: BufReader<ReadHalf<T>>,
@@ -21,7 +23,18 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
     }
 
     pub async fn read_message(&mut self) -> Result<Option<Message>, Error> {
-        //     loop {
+        loop {
+            if 0 == self.reader.read_buf(&mut self.buffer).await? {
+                if self.buffer.is_empty() {
+                    return Ok(None);
+                } else {
+                    return Err("Connection reset by peer".into());
+                }
+            }
+        }
+        // loop {
+
+        // if let Some(message) =
         //         if let Some(message) = self.parse_message()? {
         //             return Ok(Some(message));
         //         }
@@ -33,11 +46,7 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
         //             }
         //         }
         //     }
-        if self.buffer.is_empty() {
-            Ok(None)
-        } else {
-            Err("Connection reset by peer".into())
-        }
+        // }
     }
 
     // fn parse_message(&mut self) -> Result<Option<Message>, String> {
@@ -128,12 +137,30 @@ mod tests {
         assert!(res.is_err());
     }
 
+    #[tokio::test]
+    async fn it_should_read_until_buffer_is_empty() {
+        let line_1 = b"type Object {\n";
+        let line_2 = b"  name: String,\n";
+        let line_3 = b"  id: ID!,\n";
+        let line_4 = b"}\n";
+        let total_length = line_1.len() + line_2.len() + line_3.len() + line_4.len();
+        let inner = MockStream {
+            reader: vec![line_1, line_2, line_3, line_4],
+            writer: vec![],
+        };
+        let mut conn = Connection::new(inner);
+        let res = conn.read_message().await;
+        assert!(res.is_err());
+        assert_eq!(conn.buffer.len(), total_length);
+    }
     // #[tokio::test]
     // async fn it_reads_a_message() {
     //     let inner = MockStream {
-    //         reader: Vec::from(b"type Object { name: String }"),
+    //         reader: vec![b"type Object { name: String }\n"],
     //         writer: vec![],
     //     };
     //     let mut conn = Connection::new(inner);
+    //     let res = conn.read_message().await;
+    //     assert!(res.is_ok());
     // }
 }

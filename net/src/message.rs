@@ -13,15 +13,6 @@ impl Message {
         } else {
             Err("Message currently not ready".into())
         }
-        // let _unmatched_braces = cursor.iter().fold(0, |count, b| {
-        //     if *b == b'{' {
-        //         count + 1
-        //     } else if *b == b'}' {
-        //         count - 1
-        //     } else {
-        //         count
-        //     }
-        // });
     }
 
     fn check_balanced_braces(cursor: &BytesMut) -> Result<(), Error> {
