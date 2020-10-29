@@ -1,5 +1,6 @@
 use crate::message::Message;
 use bytes::{BufMut, BytesMut};
+use std::io::Cursor;
 use tokio::io::{
     self, AsyncRead, AsyncReadExt, AsyncWrite, BufReader, BufWriter, ReadHalf, WriteHalf,
 };
@@ -49,9 +50,12 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
         // }
     }
 
-    // fn parse_message(&mut self) -> Result<Option<Message>, String> {
-    //     unimplemented!()
-    // }
+    fn parse_message(&mut self) -> Result<Option<Message>, String> {
+        match Message::ready(&self.buffer) {
+            Ok(_) => Ok(Some(Message::Document(String::new()))),
+            Err(_) => Ok(None),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -113,26 +117,30 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn it_closes_down_with_nothing_to_read() {
+    fn create_connection(input: Vec<&[u8]>) -> Connection<MockStream> {
         let inner = MockStream {
-            reader: vec![],
+            reader: input,
             writer: vec![],
         };
-        let mut conn = Connection::new(inner);
+        Connection::new(inner)
+    }
+
+    #[tokio::test]
+    async fn it_closes_down_with_nothing_to_read() {
+        let mut conn = create_connection(vec![]);
+
         let res = conn.read_message().await;
+
         assert!(res.is_ok());
         assert!(res.unwrap().is_none());
     }
 
     #[tokio::test]
     async fn it_fails_if_buffer_is_partially_filled() {
-        let inner = MockStream {
-            reader: vec![],
-            writer: vec![],
-        };
-        let mut conn = Connection::new(inner);
+        let mut conn = create_connection(vec![]);
+
         conn.buffer.put(&b"halfway done"[..]);
+
         let res = conn.read_message().await;
         assert!(res.is_err());
     }
@@ -144,15 +152,14 @@ mod tests {
         let line_3 = b"  id: ID!,\n";
         let line_4 = b"}\n";
         let total_length = line_1.len() + line_2.len() + line_3.len() + line_4.len();
-        let inner = MockStream {
-            reader: vec![line_1, line_2, line_3, line_4],
-            writer: vec![],
-        };
-        let mut conn = Connection::new(inner);
+
+        let mut conn = create_connection(vec![line_1, line_2, line_3, line_4]);
+
         let res = conn.read_message().await;
         assert!(res.is_err());
         assert_eq!(conn.buffer.len(), total_length);
     }
+
     // #[tokio::test]
     // async fn it_reads_a_message() {
     //     let inner = MockStream {
@@ -163,4 +170,25 @@ mod tests {
     //     let res = conn.read_message().await;
     //     assert!(res.is_ok());
     // }
+    //
+
+    #[test]
+    fn it_attempts_to_parse_a_message() {
+        let mut conn = create_connection(vec![]);
+
+        let res = conn.parse_message();
+        assert!(res.is_ok());
+        assert!(res.unwrap().is_none());
+    }
+
+    #[test]
+    fn it_parses_a_message_when_ready() {
+        let mut conn = create_connection(vec![]);
+
+        conn.buffer.put(&b"type Object { name: String }\n"[..]);
+        let res = conn.parse_message();
+
+        assert!(res.is_ok());
+        assert!(res.unwrap().is_some());
+    }
 }

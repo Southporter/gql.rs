@@ -1,8 +1,12 @@
-use crate::connection::Error;
 use bytes::BytesMut;
-use std::io::Cursor;
 
-pub struct Message {}
+pub enum Message {
+    Document(String),
+}
+
+pub enum Error {
+    Incomplete(String),
+}
 
 impl Message {
     pub fn ready(cursor: &BytesMut) -> Result<(), Error> {
@@ -11,7 +15,9 @@ impl Message {
         } else if cursor.iter().find(|&&b| b == b'\n').is_some() {
             Ok(())
         } else {
-            Err("Message currently not ready".into())
+            Err(Error::Incomplete(String::from(
+                "Message currently not ready",
+            )))
         }
     }
 
@@ -33,10 +39,16 @@ impl Message {
             }
         });
         if unmatched_braces > 0 {
-            Err("Unmatched braces. Message currently not ready".into())
+            Err(Error::Incomplete(String::from(
+                "Unmatched braces. Message currently not ready",
+            )))
         } else {
             Ok(())
         }
+    }
+
+    pub fn parse(cursor: &BytesMut) -> Result<(), Error> {
+        Ok(())
     }
 }
 
@@ -79,5 +91,12 @@ mod tests {
         let mut buf = BytesMut::with_capacity(64);
         buf.put(&b"type User { name: String, email: Address }\ntype Address {\n"[..]);
         assert!(Message::ready(&buf).is_ok());
+    }
+
+    #[test]
+    fn it_parses_a_message() {
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put(&b"type User {\n name: String,\n email: Email,\n}\n"[..]);
+        assert!(Message::parse(&buf).is_ok());
     }
 }
