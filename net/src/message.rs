@@ -1,11 +1,14 @@
 use bytes::BytesMut;
 
+#[derive(Debug, PartialEq)]
 pub enum Message {
     Document(String),
 }
 
+#[derive(Debug)]
 pub enum Error {
     Incomplete(String),
+    System(crate::connection::Error),
 }
 
 impl Message {
@@ -47,9 +50,31 @@ impl Message {
         }
     }
 
-    pub fn parse(cursor: &BytesMut) -> Result<(), Error> {
-        Ok(())
+    pub fn parse(cursor: &BytesMut) -> Result<Message, Error> {
+        let mut last_closed: usize = 0;
+        cursor.iter().fold((0, 0), |(index, unmatched), b| {
+            if *b == b'{' {
+                (index + 1, unmatched + 1)
+            } else if *b == b'}' {
+                let new_unmatched = unmatched - 1;
+                if new_unmatched == 0 {
+                    last_closed = index + 1;
+                }
+                (index + 1, new_unmatched)
+            } else {
+                (index + 1, unmatched)
+            }
+        });
+        let slice = &cursor[..=last_closed];
+        println!("Last index of closed brace: {}", last_closed);
+        println!("Slice: {:?}", slice);
+        match std::str::from_utf8(slice) {
+            Ok(content) => Ok(Message::Document(String::from(content))),
+            Err(e) => Err(Error::System(e.into())),
+        }
     }
+
+    // fn find_last_matched(cursor: &BytesMu)
 }
 
 #[cfg(test)]
@@ -59,44 +84,79 @@ mod tests {
 
     #[test]
     fn it_checks_for_an_open_brace() {
-        let mut buf = BytesMut::with_capacity(64);
-        buf.put(&b"{}"[..]);
+        let mut buf = BytesMut::from("{}");
         assert!(Message::ready(&buf).is_ok());
 
-        let mut buf = BytesMut::with_capacity(64);
-        buf.put(&b"type Object"[..]);
+        let mut buf = BytesMut::from("type Object");
         assert!(Message::ready(&buf).is_err());
     }
 
     #[test]
     fn it_checks_for_a_new_line_if_no_brace() {
-        let mut buf = BytesMut::with_capacity(64);
-        buf.put(&b"scalar Date\n"[..]);
+        let buf = BytesMut::from("scalar Date\n");
         assert!(Message::ready(&buf).is_ok());
 
-        let mut buf = BytesMut::with_capacity(64);
-        buf.put(&b"union Pet = Dog | Cat |"[..]);
+        let buf = BytesMut::from("union Pet = Dog | Cat |");
         assert!(Message::ready(&buf).is_err());
     }
 
     #[test]
     fn it_checks_that_all_braces_are_paired() {
-        let mut buf = BytesMut::with_capacity(64);
-        buf.put(&b"{ user { }"[..]);
+        let buf = BytesMut::from("{ user { }");
         assert!(Message::ready(&buf).is_err());
     }
 
     #[test]
     fn it_checks_that_only_first_brace_must_be_paired() {
-        let mut buf = BytesMut::with_capacity(64);
-        buf.put(&b"type User { name: String, email: Address }\ntype Address {\n"[..]);
+        let buf = BytesMut::from("type User { name: String, email: Address }\ntype Address {\n");
         assert!(Message::ready(&buf).is_ok());
     }
 
     #[test]
     fn it_parses_a_message() {
-        let mut buf = BytesMut::with_capacity(64);
-        buf.put(&b"type User {\n name: String,\n email: Email,\n}\n"[..]);
-        assert!(Message::parse(&buf).is_ok());
+        let buf = BytesMut::from("type User {\n name: String,\n email: Email,\n}\n");
+        let parsed = Message::parse(&buf);
+        assert!(parsed.is_ok());
+        assert_eq!(
+            parsed.unwrap(),
+            Message::Document(String::from_utf8(buf.to_vec()).unwrap())
+        );
+    }
+
+    #[test]
+    fn it_only_parses_complete_messages() {
+        let buf = BytesMut::from(
+            r#"
+type User {
+    name: String
+    email: Email
+}
+
+type Admin {
+    user: User
+    priveledges: [Priviledges]!
+}
+
+type Incomplete {
+"#,
+        );
+        let parsed = Message::parse(&buf);
+        assert!(parsed.is_ok());
+        assert_eq!(
+            parsed.unwrap(),
+            Message::Document(String::from(
+                r#"
+type User {
+    name: String
+    email: Email
+}
+
+type Admin {
+    user: User
+    priveledges: [Priviledges]!
+}
+"#
+            ))
+        );
     }
 }
