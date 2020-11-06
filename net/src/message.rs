@@ -52,6 +52,7 @@ impl Message {
 
     pub fn parse(cursor: &BytesMut) -> Result<Message, Error> {
         let mut last_closed: usize = 0;
+        let mut first_closed: usize = 0;
         cursor.iter().fold((0, 0), |(index, unmatched), b| {
             if *b == b'{' {
                 (index + 1, unmatched + 1)
@@ -59,13 +60,19 @@ impl Message {
                 let new_unmatched = unmatched - 1;
                 if new_unmatched == 0 {
                     last_closed = index + 1;
+                    if first_closed == 0 {
+                        first_closed = last_closed;
+                    }
                 }
                 (index + 1, new_unmatched)
             } else {
                 (index + 1, unmatched)
             }
         });
-        let slice = &cursor[..=last_closed];
+        let slice = match cursor[0] {
+            b'{' => &cursor[..first_closed],
+            _ => &cursor[..last_closed],
+        };
         println!("Last index of closed brace: {}", last_closed);
         println!("Slice: {:?}", slice);
         match std::str::from_utf8(slice) {
@@ -73,21 +80,19 @@ impl Message {
             Err(e) => Err(Error::System(e.into())),
         }
     }
-
-    // fn find_last_matched(cursor: &BytesMu)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::{BufMut, BytesMut};
+    use bytes::BytesMut;
 
     #[test]
     fn it_checks_for_an_open_brace() {
-        let mut buf = BytesMut::from("{}");
+        let buf = BytesMut::from("{}");
         assert!(Message::ready(&buf).is_ok());
 
-        let mut buf = BytesMut::from("type Object");
+        let buf = BytesMut::from("type Object");
         assert!(Message::ready(&buf).is_err());
     }
 
@@ -114,7 +119,7 @@ mod tests {
 
     #[test]
     fn it_parses_a_message() {
-        let buf = BytesMut::from("type User {\n name: String,\n email: Email,\n}\n");
+        let buf = BytesMut::from("type User {\n name: String,\n email: Email,\n}");
         let parsed = Message::parse(&buf);
         assert!(parsed.is_ok());
         assert_eq!(
@@ -154,8 +159,28 @@ type User {
 type Admin {
     user: User
     priveledges: [Priviledges]!
+}"#
+            ))
+        );
+    }
+
+    #[test]
+    fn it_only_parses_a_query() {
+        let buf = BytesMut::from(
+            r#"{ user { name, email, permissions(role: "admin") { home, isSudo, } } }
+
+type Login {
+    user: User,
+    expiry: DateTime,
 }
-"#
+"#,
+        );
+        let parsed = Message::parse(&buf);
+        assert!(parsed.is_ok());
+        assert_eq!(
+            parsed.unwrap(),
+            Message::Document(String::from(
+                "{ user { name, email, permissions(role: \"admin\") { home, isSudo, } } }"
             ))
         );
     }
