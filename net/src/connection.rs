@@ -1,6 +1,6 @@
-use crate::message::Message;
-use bytes::{BufMut, BytesMut};
-use std::io::Cursor;
+use crate::message::{self, Message};
+use bytes::{Buf, BufMut, BytesMut};
+use log::info;
 use tokio::io::{
     self, AsyncRead, AsyncReadExt, AsyncWrite, BufReader, BufWriter, ReadHalf, WriteHalf,
 };
@@ -23,8 +23,11 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
         }
     }
 
-    pub async fn read_message(&mut self) -> Result<Option<Message>, Error> {
+    pub async fn read_message(&mut self) -> Result<Option<String>, Error> {
         loop {
+            if let Some(message) = self.parse_message()? {
+                return Ok(Some(message));
+            }
             if 0 == self.reader.read_buf(&mut self.buffer).await? {
                 if self.buffer.is_empty() {
                     return Ok(None);
@@ -33,28 +36,27 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
                 }
             }
         }
-        // loop {
-
-        // if let Some(message) =
-        //         if let Some(message) = self.parse_message()? {
-        //             return Ok(Some(message));
-        //         }
-        //         if 0 == self.reader.read_buf(&mut self.buffer).await? {
-        //             if self.buffer.is_empty() {
-        //                 return Ok(None);
-        //             } else {
-        //                 return Err("Connection reset by peer".into());
-        //             }
-        //         }
-        //     }
-        // }
     }
 
-    fn parse_message(&mut self) -> Result<Option<Message>, String> {
+    fn parse_message(&mut self) -> Result<Option<String>, Error> {
         match Message::ready(&self.buffer) {
-            Ok(_) => Ok(Some(Message::Document(String::new()))),
+            Ok(_) => match Message::parse(&self.buffer) {
+                Ok(Message::Document { content, byte_len }) => {
+                    self.buffer.advance(byte_len);
+                    Ok(Some(content))
+                }
+                Err(message::Error::Incomplete(m)) => {
+                    info!("Parsing incomplete: {}", m);
+                    Ok(None)
+                }
+                Err(message::Error::System(e)) => Err(e),
+            },
             Err(_) => Ok(None),
         }
+    }
+
+    pub async fn write_message(&self, _message: &str) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -146,31 +148,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_should_read_until_buffer_is_empty() {
-        let line_1 = b"type Object {\n";
-        let line_2 = b"  name: String,\n";
-        let line_3 = b"  id: ID!,\n";
-        let line_4 = b"}\n";
-        let total_length = line_1.len() + line_2.len() + line_3.len() + line_4.len();
-
-        let mut conn = create_connection(vec![line_1, line_2, line_3, line_4]);
-
+    async fn it_reads_a_message() {
+        let inner = MockStream {
+            reader: vec![b"type Object { name: String }\n"],
+            writer: vec![],
+        };
+        let mut conn = Connection::new(inner);
         let res = conn.read_message().await;
-        assert!(res.is_err());
-        assert_eq!(conn.buffer.len(), total_length);
+        assert!(res.is_ok());
+        assert!(res.unwrap().is_some());
     }
-
-    // #[tokio::test]
-    // async fn it_reads_a_message() {
-    //     let inner = MockStream {
-    //         reader: vec![b"type Object { name: String }\n"],
-    //         writer: vec![],
-    //     };
-    //     let mut conn = Connection::new(inner);
-    //     let res = conn.read_message().await;
-    //     assert!(res.is_ok());
-    // }
-    //
 
     #[test]
     fn it_attempts_to_parse_a_message() {
@@ -189,6 +176,19 @@ mod tests {
         let res = conn.parse_message();
 
         assert!(res.is_ok());
-        assert!(res.unwrap().is_some());
+        let opt_message = res.unwrap();
+        assert!(opt_message.is_some());
+        assert_eq!(
+            opt_message.unwrap(),
+            String::from("type Object { name: String }"),
+        )
+    }
+
+    #[tokio::test]
+    async fn it_can_write_messages() {
+        let inner = vec![];
+        let mut conn = create_connection(inner);
+        assert!(conn.write_message("OK").await.is_ok());
+        // assert_eq!(inner, b"OK"[..]);
     }
 }

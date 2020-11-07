@@ -20,7 +20,16 @@ fn handle_database_request(input: &str) -> String {
 }
 
 async fn handle_connection(mut conn: Connection<TcpStream>) -> io::Result<()> {
-    let _message: Message = conn.read_message().await.unwrap().unwrap();
+    loop {
+        match conn.read_message().await {
+            Ok(Some(content)) => {
+                let _response = handle_database_request(&content);
+                // conn.write_message(&response).await;
+            }
+            Ok(None) => continue,
+            Err(_) => break,
+        };
+    }
     Ok(())
     // let mut buffer: Vec<u8> = Vec::new();
     // info!("Handling connection");

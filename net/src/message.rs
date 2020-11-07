@@ -2,7 +2,7 @@ use bytes::BytesMut;
 
 #[derive(Debug, PartialEq)]
 pub enum Message {
-    Document(String),
+    Document { content: String, byte_len: usize },
 }
 
 #[derive(Debug)]
@@ -76,7 +76,10 @@ impl Message {
         println!("Last index of closed brace: {}", last_closed);
         println!("Slice: {:?}", slice);
         match std::str::from_utf8(slice) {
-            Ok(content) => Ok(Message::Document(String::from(content))),
+            Ok(content) => Ok(Message::Document {
+                content: String::from(content),
+                byte_len: slice.len(),
+            }),
             Err(e) => Err(Error::System(e.into())),
         }
     }
@@ -124,7 +127,10 @@ mod tests {
         assert!(parsed.is_ok());
         assert_eq!(
             parsed.unwrap(),
-            Message::Document(String::from_utf8(buf.to_vec()).unwrap())
+            Message::Document {
+                content: String::from_utf8(buf.to_vec()).unwrap(),
+                byte_len: buf.len(),
+            }
         );
     }
 
@@ -149,8 +155,9 @@ type Incomplete {
         assert!(parsed.is_ok());
         assert_eq!(
             parsed.unwrap(),
-            Message::Document(String::from(
-                r#"
+            Message::Document {
+                content: String::from(
+                    r#"
 type User {
     name: String
     email: Email
@@ -160,7 +167,9 @@ type Admin {
     user: User
     priveledges: [Priviledges]!
 }"#
-            ))
+                ),
+                byte_len: 111
+            }
         );
     }
 
@@ -179,9 +188,12 @@ type Login {
         assert!(parsed.is_ok());
         assert_eq!(
             parsed.unwrap(),
-            Message::Document(String::from(
-                "{ user { name, email, permissions(role: \"admin\") { home, isSudo, } } }"
-            ))
+            Message::Document {
+                content: String::from(
+                    "{ user { name, email, permissions(role: \"admin\") { home, isSudo, } } }"
+                ),
+                byte_len: 70,
+            }
         );
     }
 }
