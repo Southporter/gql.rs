@@ -10,3 +10,6 @@ syntax = { path = "../syntax" }
 log = "0.4"
 tokio = { version =  "0.2", features = ["full"] }
 
+[dev-dependencies]
+pretty_env_logger = "*"
+

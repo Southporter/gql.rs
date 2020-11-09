@@ -5,7 +5,6 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::stream::StreamExt;
 
 use crate::connection::Connection;
-use crate::message::Message;
 use syntax;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -23,25 +22,14 @@ async fn handle_connection(mut conn: Connection<TcpStream>) -> io::Result<()> {
     loop {
         match conn.read_message().await {
             Ok(Some(content)) => {
-                let _response = handle_database_request(&content);
-                // conn.write_message(&response).await;
+                let response = handle_database_request(&content);
+                conn.write_message(&response).await;
             }
             Ok(None) => continue,
             Err(_) => break,
         };
     }
     Ok(())
-    // let mut buffer: Vec<u8> = Vec::new();
-    // info!("Handling connection");
-    // if let Ok(num_read) = stream.read(buffer.as_mut_slice()).await? {
-    //     info!("read into buffer: {}; {}", buffer, num_read);
-    //     let res = handle_database_request();
-    //     info!("Result from database: {:?}", res);
-    //     stream.write_all(&res.into_bytes()).await
-    // } else {
-    //     info!("Error reading to string");
-    //     Ok(())
-    // }
 }
 
 pub async fn handle_tcp(port: u32) -> io::Result<()> {

@@ -1,4 +1,5 @@
 use bytes::BytesMut;
+use log::info;
 
 #[derive(Debug, PartialEq)]
 pub enum Message {
@@ -73,8 +74,8 @@ impl Message {
             b'{' => &cursor[..first_closed],
             _ => &cursor[..last_closed],
         };
-        println!("Last index of closed brace: {}", last_closed);
-        println!("Slice: {:?}", slice);
+        info!("Last index of closed brace: {}", last_closed);
+        info!("Slice: {:?}", slice);
         match std::str::from_utf8(slice) {
             Ok(content) => Ok(Message::Document {
                 content: String::from(content),

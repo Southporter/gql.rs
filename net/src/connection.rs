@@ -1,8 +1,9 @@
 use crate::message::{self, Message};
-use bytes::{Buf, BufMut, BytesMut};
-use log::info;
+use bytes::{Buf, BytesMut};
+use log::{debug, info};
 use tokio::io::{
-    self, AsyncRead, AsyncReadExt, AsyncWrite, BufReader, BufWriter, ReadHalf, WriteHalf,
+    self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, BufWriter, ReadHalf,
+    WriteHalf,
 };
 
 pub struct Connection<T> {
@@ -25,10 +26,17 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
 
     pub async fn read_message(&mut self) -> Result<Option<String>, Error> {
         loop {
+            debug!("start of loop");
             if let Some(message) = self.parse_message()? {
+                debug!("Got message: {}", message);
+                if message == "" {
+                    return Ok(None);
+                }
                 return Ok(Some(message));
             }
-            if 0 == self.reader.read_buf(&mut self.buffer).await? {
+            let bytes_read = self.reader.read_buf(&mut self.buffer).await?;
+            debug!("Bytes read: {}", bytes_read);
+            if 0 == bytes_read {
                 if self.buffer.is_empty() {
                     return Ok(None);
                 } else {
@@ -55,14 +63,15 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
         }
     }
 
-    pub async fn write_message(&self, _message: &str) -> io::Result<()> {
-        Ok(())
+    pub async fn write_message(&mut self, message: &str) -> io::Result<()> {
+        self.writer.write_all(message.as_bytes()).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::BufMut;
     use core::pin::Pin;
     use core::task::{Context, Poll};
     use tokio::io;
@@ -119,6 +128,10 @@ mod tests {
         }
     }
 
+    fn init_log() {
+        pretty_env_logger::init();
+    }
+
     fn create_connection(input: Vec<&[u8]>) -> Connection<MockStream> {
         let inner = MockStream {
             reader: input,
@@ -149,6 +162,8 @@ mod tests {
 
     #[tokio::test]
     async fn it_reads_a_message() {
+        init_log();
+
         let inner = MockStream {
             reader: vec![b"type Object { name: String }\n"],
             writer: vec![],
@@ -157,6 +172,14 @@ mod tests {
         let res = conn.read_message().await;
         assert!(res.is_ok());
         assert!(res.unwrap().is_some());
+
+        let res = conn.read_message().await;
+        assert!(res.is_ok());
+        assert!(res.unwrap().is_none());
+
+        let res = conn.read_message().await;
+        assert!(res.is_ok());
+        assert!(res.unwrap().is_none());
     }
 
     #[test]
@@ -189,6 +212,6 @@ mod tests {
         let inner = vec![];
         let mut conn = create_connection(inner);
         assert!(conn.write_message("OK").await.is_ok());
-        // assert_eq!(inner, b"OK"[..]);
+        assert_eq!(conn.writer.buffer(), &b"OK"[..]);
     }
 }
