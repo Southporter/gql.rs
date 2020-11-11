@@ -4,6 +4,10 @@ appenders:
   # An appender named "stdout" that writes to stdout
   stdout:
     kind: console
+  # debug:
+  #   kind: file
+  #   path: "log/debug.log"
+
 
   # An appender named "requests" that writes to a file with a custom pattern encoder
   # requests:
@@ -17,11 +21,13 @@ root:
   level: info
   appenders:
     - stdout
+    # - debug
+
 
 loggers:
-  # Raise the maximum log level for events sent to the "app::backend::db" logger to "info"
-  app::backend::db:
-    level: info
+  net:
+    level: debug
+
 
   # Route log events sent to the "app::requests" logger to the "requests" appender,
   # and *not* the normal appenders installed at the root

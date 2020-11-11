@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, info};
 use tokio;
 use tokio::io;
 use tokio::net::{TcpListener, TcpStream};
@@ -23,9 +23,11 @@ async fn handle_connection(mut conn: Connection<TcpStream>) -> io::Result<()> {
         match conn.read_message().await {
             Ok(Some(content)) => {
                 let response = handle_database_request(&content);
-                conn.write_message(&response).await;
+                let _finished = conn.write_message(&response).await;
             }
-            Ok(None) => continue,
+            Ok(None) => {
+                debug!("Message not read");
+            }
             Err(_) => break,
         };
     }

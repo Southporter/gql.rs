@@ -47,10 +47,14 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
     }
 
     fn parse_message(&mut self) -> Result<Option<String>, Error> {
-        match Message::ready(&self.buffer) {
+        let is_ready = Message::ready(&self.buffer);
+        info!("is ready?: {:?}", is_ready);
+        match is_ready {
             Ok(_) => match Message::parse(&self.buffer) {
                 Ok(Message::Document { content, byte_len }) => {
+                    // self.advance_buffer(byte_len);
                     self.buffer.advance(byte_len);
+                    info!("Content pulled from connection:\n{}", content);
                     Ok(Some(content))
                 }
                 Err(message::Error::Incomplete(m)) => {
@@ -64,7 +68,11 @@ impl<T: AsyncRead + AsyncWrite> Connection<T> {
     }
 
     pub async fn write_message(&mut self, message: &str) -> io::Result<()> {
-        self.writer.write_all(message.as_bytes()).await
+        let res = self.writer.write_all(message.as_bytes()).await;
+        info!("Write_all response: {:?}", res);
+        let flush_res = self.writer.flush().await;
+        info!("flush response: {:?}", flush_res);
+        Ok(())
     }
 }
 

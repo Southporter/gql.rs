@@ -16,8 +16,8 @@ impl Message {
     pub fn ready(cursor: &BytesMut) -> Result<(), Error> {
         if cursor.iter().find(|&&b| b == b'{').is_some() {
             Message::check_balanced_braces(cursor)
-        } else if cursor.iter().find(|&&b| b == b'\n').is_some() {
-            Ok(())
+        // } else if cursor.iter().find(|&&b| b == b'\n').is_some() {
+        //     Ok(())
         } else {
             Err(Error::Incomplete(String::from(
                 "Message currently not ready",
@@ -42,7 +42,7 @@ impl Message {
                 count
             }
         });
-        if unmatched_braces > 0 {
+        if unmatched_braces > 0 || !stop_flag {
             Err(Error::Incomplete(String::from(
                 "Unmatched braces. Message currently not ready",
             )))
@@ -100,14 +100,14 @@ mod tests {
         assert!(Message::ready(&buf).is_err());
     }
 
-    #[test]
-    fn it_checks_for_a_new_line_if_no_brace() {
-        let buf = BytesMut::from("scalar Date\n");
-        assert!(Message::ready(&buf).is_ok());
+    // #[test]
+    // fn it_checks_for_a_new_line_if_no_brace() {
+    //     let buf = BytesMut::from("scalar Date\n");
+    //     assert!(Message::ready(&buf).is_ok());
 
-        let buf = BytesMut::from("union Pet = Dog | Cat |");
-        assert!(Message::ready(&buf).is_err());
-    }
+    //     let buf = BytesMut::from("union Pet = Dog | Cat |");
+    //     assert!(Message::ready(&buf).is_err());
+    // }
 
     #[test]
     fn it_checks_that_all_braces_are_paired() {
