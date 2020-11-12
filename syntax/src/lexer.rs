@@ -45,7 +45,8 @@
 //! The lexer will respond as follows if it encounters an error:
 //!
 //! ```
-//! use syntax::lexer::{Lexer, LexError};
+//! use syntax::lexer::Lexer;
+//! use syntax::error::LexError;
 //! use syntax::token::{Token, Location};
 //!
 //! let mut lexer = Lexer::new(r#""unmatched"#);
@@ -58,7 +59,7 @@
 //! assert_eq!(lexer.next(), None);
 //! ```
 //!
-//! [`LexError`]: enum.LexError.html
+//! [`LexError`]: ../error/enum.LexError.html
 //! [`Lexer`]: enum.Lexer.html
 //! [`Iterator`]: ../../std/iter/trait.Iterator.html
 //! [`Token`]: ../token/enum.Token.html
@@ -67,26 +68,13 @@
 //!
 //!
 
+use crate::error::LexError;
 use crate::token::{Location, Token};
+use log::debug;
 use regex::Regex;
 use std::iter::Iterator;
 use std::iter::Peekable;
 use std::str::CharIndices;
-
-/// Represents a symantic issue in the GraphQL string.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum LexError {
-    /// The Lexer encountered a `"` that was not paired
-    UnmatchedQuote(Location),
-    /// The next character is not a valid GraphQL symbol
-    UnknownCharacter(Location),
-    /// The following character is valid but was not expected in that order
-    UnexpectedCharacter(Location),
-    /// An issue occured while trying to turn the string value into some other type
-    UnableToConvert(Location),
-    /// The end of the file was encountered unexpectedly
-    EOF,
-}
 
 /// A Lexer is an iterator that takes an input GraphQL string and generates a series of [`Tokens`]` or
 /// [`error`]s.
@@ -97,8 +85,8 @@ pub enum LexError {
 /// A Lexer will also keep track of its possition in the string. This allows for more robust
 /// messages about where in the string a certain token or error is.
 ///
-/// [`Tokens`]: ../../token/enum.Token.html
-/// [`errors`]: ../enum.LexError.html
+/// [`Tokens`]: ../token/enum.Token.html
+/// [`error`]: ../error/enum.LexError.html
 #[derive(Debug)]
 pub struct Lexer<'a> {
     raw: &'a str,
@@ -150,7 +138,7 @@ impl<'a> Lexer<'a> {
                 // TODO Make this multilingual
                 'a'..='z' | 'A'..='Z' => self.lex_name(index),
                 // TODO Make this handle scientific notation
-                '1'..='9' | '-' => self.lex_number(index),
+                '0'..='9' | '-' => self.lex_number(index),
                 '.' => self.lex_ellipsis(index),
                 _ => self.make_unknown_character_error(),
             }
@@ -192,7 +180,7 @@ impl<'a> Lexer<'a> {
                                 self.advance_to(end);
                                 Ok(Token::Float(Location::new(init_pos, self.line, cur_col), f))
                             }
-                            Err(_) => self.make_conversion_error(),
+                            Err(_) => self.make_conversion_error("Float"),
                         }
                     }
                     None => self.make_unknown_character_error(),
@@ -211,7 +199,7 @@ impl<'a> Lexer<'a> {
                                 self.advance_to(end);
                                 Ok(tok)
                             }
-                            Err(_) => self.make_conversion_error(),
+                            Err(_) => self.make_conversion_error("Int"),
                         }
                     }
                     None => self.make_unknown_character_error(),
@@ -219,7 +207,7 @@ impl<'a> Lexer<'a> {
                 None => self.make_unexpected_character_error(),
             }
         } else {
-            self.make_conversion_error()
+            self.make_conversion_error("Int or Float")
         }
     }
 
@@ -394,9 +382,12 @@ impl<'a> Lexer<'a> {
         Err(LexError::UnexpectedCharacter(self.get_current_location()))
     }
 
-    fn make_conversion_error(&mut self) -> LexerItem<'a> {
+    fn make_conversion_error(&mut self, expected_type: &'static str) -> LexerItem<'a> {
         self.ended = true;
-        Err(LexError::UnableToConvert(self.get_current_location()))
+        Err(LexError::UnableToConvert(
+            self.get_current_location(),
+            expected_type,
+        ))
     }
 
     fn make_unknown_character_error(&mut self) -> LexerItem<'a> {
@@ -455,16 +446,16 @@ impl<'a> Iterator for Lexer<'a> {
         if self.ended {
             None
         } else if !self.initialized {
-            println!("Uninizialized");
+            debug!("Uninizialized");
             self.initialized = true;
             Some(Ok(Token::Start))
         } else if let Some(_) = self.input.peek() {
             let tok = self.get_next_token();
-            println!("Next Token: {:?}", tok);
-            println!("Next char: {:?}", self.input.peek());
+            debug!("Next Token: {:?}", tok);
+            debug!("Next char: {:?}", self.input.peek());
             Some(tok)
         } else {
-            println!("Found a None in the string: Ending? {}", self.ended);
+            debug!("Found a None in the string: Ending? {}", self.ended);
             if !self.ended {
                 self.ended = true;
                 Some(Ok(Token::End))
@@ -497,6 +488,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, LexError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::LexError;
     use crate::token::Token;
 
     #[test]

@@ -110,6 +110,46 @@ impl<'a> Token<'a> {
     pub fn is_same_type(&self, other: &Token) -> bool {
         return mem::discriminant(self) == mem::discriminant(other);
     }
+
+    /// Extracts the token's location from the enum variant.
+    ///
+    /// ```
+    /// use syntax::token::{Token, Location};
+    ///
+    /// let location = Location::new(42, 4, 2);
+    /// let pipe = Token::Pipe(Location::new(42, 4, 2));
+    /// assert_eq!(pipe.location(), location);
+    /// assert_eq!(Token::Start.location(), Location {
+    ///   absolute_position: 0,
+    ///   line: 0,
+    ///   column: 0,
+    /// });
+    /// ```
+    pub fn location(&self) -> Location {
+        match self {
+            Token::Start | Token::End => Location::ignored(),
+            Token::Bang(location)
+            | Token::Dollar(location)
+            | Token::Amp(location)
+            | Token::Spread(location)
+            | Token::Colon(location)
+            | Token::Equals(location)
+            | Token::At(location)
+            | Token::Pipe(location)
+            | Token::OpenParen(location)
+            | Token::CloseParen(location)
+            | Token::OpenSquare(location)
+            | Token::CloseSquare(location)
+            | Token::OpenBrace(location)
+            | Token::CloseBrace(location)
+            | Token::Name(location, _)
+            | Token::Int(location, _)
+            | Token::Float(location, _)
+            | Token::Str(location, _)
+            | Token::BlockStr(location, _)
+            | Token::Comment(location, _) => *location,
+        }
+    }
 }
 
 use std::fmt;
@@ -209,5 +249,14 @@ mod tests {
             Token::BlockStr(Location::new(0, 0, 0), "Comment"),
             Token::BlockStr(Location::new(1, 2, 1), "Your comment here")
         );
+    }
+
+    #[test]
+    fn get_location() {
+        let loc = Location::new(42, 3, 4);
+        assert_eq!(Token::Start.location(), Location::ignored());
+        assert_eq!(Token::End.location(), Location::ignored());
+        assert_eq!(Token::Bang(loc).location(), loc);
+        assert_eq!(Token::Str(loc, "Some str value").location(), loc);
     }
 }

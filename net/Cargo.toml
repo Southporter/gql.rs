@@ -1,0 +1,15 @@
+[package]
+name = "net"
+version = "0.1.0"
+authors = ["Shem Sedrick <ssedrick1@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bytes = "0.5"
+syntax = { path = "../syntax" }
+log = "0.4"
+tokio = { version =  "0.2", features = ["full"] }
+
+[dev-dependencies]
+pretty_env_logger = "*"
+

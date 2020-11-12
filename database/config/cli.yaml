@@ -1,0 +1,29 @@
+name: GQL
+version: "1.0"
+author: "Shem Sedrick <ssedrick1@gmail.com"
+about: "A GraphQL native database"
+args:
+  - config:
+      short: c
+      long: config
+      value_name: FILE
+      help: "Sets the config file"
+  - log_config:
+      short: l
+      long: logging
+      value_name: FILE
+      help: "Sets the logging config file"
+  - threads:
+      long: threads
+      value_name: NUMBER
+      help: "The minimum number of threads used for runtime"
+  - protocols:
+      short: p
+      long: protocols
+      multiple: true
+      takes_value: true
+      possible_values:
+        - tcp
+        - udp
+        - ws
+        - rpc

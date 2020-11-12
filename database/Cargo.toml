@@ -1,0 +1,15 @@
+[package]
+name = "database"
+version = "0.1.0"
+authors = ["Shem Sedrick <ssedrick1@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+syntax = { path = "../syntax" }
+net = { path = "../net" }
+clap = { version = "2", features = ["yaml"] }
+tokio = { version = "0.2", features = ["full"] }
+futures = "0.3"
+log = "0.4"
+log4rs = "0.13"
+
