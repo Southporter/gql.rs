@@ -292,15 +292,6 @@ impl EnumValueDefinitionNode {
     }
 }
 
-// struct Location<'a> {
-//     start: usize,
-//     end: usize,
-//     startToken: Token<'a>,
-//     endToken: Token<'a>,
-//     source: &'a str
-// }
-
-// const OPERATION: &'static str = "Operation";
 // pub struct OperationDefinitionNode {
 //     kind: OPERATION,
 //     // location: Location,
@@ -310,13 +301,6 @@ impl EnumValueDefinitionNode {
 //     directives: Vec<DirectiveDefinitionNode>,
 //     selection_set: Vec<SelectionSetNode>
 // }
-
-// pub enum ExecutableDefinitionNode {
-//     Operation(OperationDefinitionNode),
-// Fragment(FragmentDefinitionNode),
-// }
-//
-//
 
 const SCHEMA: &'static str = "SchemaDefinition";
 #[derive(Debug, PartialEq)]
@@ -529,8 +513,52 @@ pub enum TypeSystemExtensionNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct FieldNode {
+    pub name: NameNode,
+    pub alias: Option<NameNode>,
+}
+
+impl FieldNode {
+    pub fn new(name: Token) -> ParseResult<FieldNode> {
+        Ok(FieldNode {
+            name: NameNode::new(name)?,
+            alias: None,
+        })
+    }
+
+    pub fn with_alias(&mut self, alias: Token) -> ParseResult<()> {
+        self.alias = Some(NameNode::new(alias)?);
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Selection {
+    Field(FieldNode),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct QueryDefinitionNode {
+    pub name: Option<NameNode>,
+    pub selections: Vec<Selection>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum OperationTypeNode {
+    Query(QueryDefinitionNode),
+    // Mutation,
+    // Subscription,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutableDefinitionNode {
+    Operation(OperationTypeNode),
+    // Fragment,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum DefinitionNode {
-    // Executable(ExecutableDefinitionNode),
+    Executable(ExecutableDefinitionNode),
     TypeSystem(TypeSystemDefinitionNode),
     Extension(TypeSystemExtensionNode),
 }

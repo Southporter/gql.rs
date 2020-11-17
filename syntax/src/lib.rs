@@ -38,8 +38,8 @@ pub fn parse<'a>(query: &'a str) -> ParseResult<Document> {
 mod tests {
     use super::*;
     use crate::error::ParseError;
-    use crate::nodes::*;
     use crate::nodes::object_type_extension::*;
+    use crate::nodes::*;
     use crate::token::{Location, Token};
     use std::rc::Rc;
 
@@ -607,5 +607,43 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                 ],
             }
         );
+    }
+
+    #[test]
+    fn parses_anonymous_query() {
+        let res = parse(
+            r#"{
+  user,
+  permissions,
+  photo: profilePic,
+}"#,
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![DefinitionNode::Executable(
+                    ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
+                        QueryDefinitionNode {
+                            name: None,
+                            selections: vec![
+                                Selection::Field(FieldNode {
+                                    name: NameNode::from("user"),
+                                    alias: None,
+                                }),
+                                Selection::Field(FieldNode {
+                                    name: NameNode::from("permissions"),
+                                    alias: None,
+                                }),
+                                Selection::Field(FieldNode {
+                                    name: NameNode::from("photo"),
+                                    alias: Some(NameNode::from("profilePic")),
+                                })
+                            ]
+                        }
+                    ))
+                ),]
+            }
+        )
     }
 }

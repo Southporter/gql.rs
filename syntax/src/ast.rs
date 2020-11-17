@@ -154,8 +154,9 @@ impl<'i> AST<'i> {
     fn parse_definition(&mut self) -> ParseResult<DefinitionNode> {
         let description = self.parse_description()?;
         let tok = self.unwrap_peeked_token()?;
-        if let Token::Name(_, val) = tok {
-            match *val {
+        println!("Tok, {:?}", tok);
+        match tok {
+            Token::Name(_, val) => match *val {
                 "type" | "enum" | "union" | "interface" | "input" | "scalar" => {
                     Ok(DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?,
@@ -165,13 +166,17 @@ impl<'i> AST<'i> {
                     self.parse_type_extension(description)?,
                 )),
                 _ => Err(ParseError::BadValue),
-            }
-        } else {
-            Err(ParseError::UnexpectedToken {
-                expected: String::from("Token<Name>"),
+            },
+            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(
+                ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
+                    self.parse_anonymous_query()?,
+                )),
+            )),
+            _ => Err(ParseError::UnexpectedToken {
+                expected: String::from("Token<Name> or Token<OpenBrace>"),
                 received: tok.to_string().to_owned(),
                 location: tok.location(),
-            })
+            }),
         }
     }
 
@@ -534,6 +539,43 @@ impl<'i> AST<'i> {
         Ok(VariableNode {
             name: NameNode::new(name)?,
         })
+    }
+
+    fn parse_anonymous_query(&mut self) -> ParseResult<QueryDefinitionNode> {
+        let selections = self.parse_selection_set()?;
+        Ok(QueryDefinitionNode {
+            name: None,
+            selections,
+        })
+    }
+
+    fn parse_selection_set(&mut self) -> ParseResult<Vec<Selection>> {
+        self.expect_token(Token::OpenBrace(Location::ignored()))?;
+        let mut selections = Vec::new();
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
+                break;
+            }
+            selections.push(self.parse_selection()?);
+        }
+        Ok(selections)
+    }
+
+    fn parse_selection(&mut self) -> ParseResult<Selection> {
+        match self.unwrap_peeked_token()? {
+            Token::Name(_, _) => Ok(Selection::Field(self.parse_field_node()?)),
+            _ => unimplemented!(),
+        }
+    }
+
+    fn parse_field_node(&mut self) -> ParseResult<FieldNode> {
+        let name = self.unwrap_next_token()?;
+        let mut field = FieldNode::new(name)?;
+        if let Some(_) = self.expect_optional_token(&Token::Colon(Location::ignored())) {
+            let alias = self.unwrap_next_token()?;
+            field.with_alias(alias)?;
+        }
+        Ok(field)
     }
 
     fn expect_token(&mut self, tok: Token<'i>) -> ParseResult<Token<'i>> {
