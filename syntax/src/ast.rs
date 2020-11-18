@@ -564,17 +564,33 @@ impl<'i> AST<'i> {
     fn parse_selection(&mut self) -> ParseResult<Selection> {
         match self.unwrap_peeked_token()? {
             Token::Name(_, _) => Ok(Selection::Field(self.parse_field_node()?)),
-            _ => unimplemented!(),
+            _ => Err(ParseError::NotImplemented),
         }
     }
 
     fn parse_field_node(&mut self) -> ParseResult<FieldNode> {
+        let mut field: FieldNode;
+
         let name = self.unwrap_next_token()?;
-        let mut field = FieldNode::new(name)?;
         if let Some(_) = self.expect_optional_token(&Token::Colon(Location::ignored())) {
-            let alias = self.unwrap_next_token()?;
-            field.with_alias(alias)?;
+            let root = self.unwrap_next_token()?;
+            field = FieldNode::new(root)?;
+            field.with_alias(name)?;
+        } else {
+            field = FieldNode::new(name)?;
         }
+
+        let arguments = self.parse_arguments()?;
+        field.with_arguments(arguments);
+
+        let directives = self.parse_directives()?;
+        field.with_directives(directives);
+
+        if let &Token::OpenBrace(_) = self.unwrap_peeked_token()? {
+            let selections = self.parse_selection_set()?;
+            field.with_selections(selections);
+        }
+
         Ok(field)
     }
 

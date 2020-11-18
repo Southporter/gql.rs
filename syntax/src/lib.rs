@@ -614,10 +614,14 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
         let res = parse(
             r#"{
   user,
-  permissions,
-  photo: profilePic,
+  permissions @view,
+  profilePic: photo(height: 100, width: 100),
+  friends {
+    name
+  }
 }"#,
         );
+        println!("Res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(
             res.unwrap(),
@@ -630,14 +634,45 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                                 Selection::Field(FieldNode {
                                     name: NameNode::from("user"),
                                     alias: None,
+                                    arguments: None,
+                                    directives: None,
+                                    selections: None,
                                 }),
                                 Selection::Field(FieldNode {
                                     name: NameNode::from("permissions"),
                                     alias: None,
+                                    arguments: None,
+                                    directives: Some(vec![DirectiveNode {
+                                        name: NameNode::from("view"),
+                                        arguments: None,
+                                    }]),
+                                    selections: None,
                                 }),
                                 Selection::Field(FieldNode {
                                     name: NameNode::from("photo"),
                                     alias: Some(NameNode::from("profilePic")),
+                                    arguments: Some(vec![
+                                        Argument {
+                                            name: NameNode::from("height"),
+                                            value: ValueNode::Int(IntValueNode { value: 100 }),
+                                        },
+                                        Argument {
+                                            name: NameNode::from("width"),
+                                            value: ValueNode::Int(IntValueNode { value: 100 }),
+                                        }
+                                    ]),
+                                    directives: None,
+                                    selections: None,
+                                }),
+                                Selection::Field(FieldNode {
+                                    name: NameNode::from("friends"),
+                                    alias: None,
+                                    arguments: None,
+                                    directives: None,
+                                    selections: Some(vec![Selection::Field(
+                                        FieldNode::new(Token::Name(Location::ignored(), "name"))
+                                            .unwrap()
+                                    )])
                                 })
                             ]
                         }

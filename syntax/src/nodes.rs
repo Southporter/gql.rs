@@ -512,10 +512,15 @@ pub enum TypeSystemExtensionNode {
     Object(ObjectTypeExtensionNode),
 }
 
+type Selections = Vec<Selection>;
+
 #[derive(Debug, PartialEq)]
 pub struct FieldNode {
     pub name: NameNode,
     pub alias: Option<NameNode>,
+    pub arguments: Option<Arguments>,
+    pub directives: Option<Directives>,
+    pub selections: Option<Selections>,
 }
 
 impl FieldNode {
@@ -523,12 +528,30 @@ impl FieldNode {
         Ok(FieldNode {
             name: NameNode::new(name)?,
             alias: None,
+            arguments: None,
+            directives: None,
+            selections: None,
         })
     }
 
-    pub fn with_alias(&mut self, alias: Token) -> ParseResult<()> {
+    pub fn with_alias(&mut self, alias: Token) -> ParseResult<&Self> {
         self.alias = Some(NameNode::new(alias)?);
-        Ok(())
+        Ok(self)
+    }
+
+    pub fn with_arguments(&mut self, arguments: Option<Arguments>) -> &Self {
+        self.arguments = arguments;
+        self
+    }
+
+    pub fn with_directives(&mut self, directives: Option<Directives>) -> &Self {
+        self.directives = directives;
+        self
+    }
+
+    pub fn with_selections(&mut self, selections: Selections) -> &Self {
+        self.selections = Some(selections);
+        self
     }
 }
 
@@ -540,7 +563,7 @@ pub enum Selection {
 #[derive(Debug, PartialEq)]
 pub struct QueryDefinitionNode {
     pub name: Option<NameNode>,
-    pub selections: Vec<Selection>,
+    pub selections: Selections,
 }
 
 #[derive(Debug, PartialEq)]
