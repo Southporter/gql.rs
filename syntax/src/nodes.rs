@@ -556,8 +556,15 @@ impl FieldNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct FragmentSpreadNode {
+    pub name: NameNode,
+    pub directives: Option<Directives>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Selection {
     Field(FieldNode),
+    Fragment(FragmentSpreadNode),
 }
 
 #[derive(Debug, PartialEq)]

@@ -564,6 +564,7 @@ impl<'i> AST<'i> {
     fn parse_selection(&mut self) -> ParseResult<Selection> {
         match self.unwrap_peeked_token()? {
             Token::Name(_, _) => Ok(Selection::Field(self.parse_field_node()?)),
+            Token::Spread(_) => Ok(Selection::Fragment(self.parse_fragment_spread_node()?)),
             _ => Err(ParseError::NotImplemented),
         }
     }
@@ -592,6 +593,16 @@ impl<'i> AST<'i> {
         }
 
         Ok(field)
+    }
+
+    fn parse_fragment_spread_node(&mut self) -> ParseResult<FragmentSpreadNode> {
+        self.expect_token(Token::Spread(Location::ignored()))?;
+        let name = self.expect_token(Token::Name(Location::ignored(), "ignored"))?;
+        let directives = self.parse_directives()?;
+        Ok(FragmentSpreadNode {
+            name: NameNode::new(name)?,
+            directives,
+        })
     }
 
     fn expect_token(&mut self, tok: Token<'i>) -> ParseResult<Token<'i>> {

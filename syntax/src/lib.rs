@@ -681,4 +681,53 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
             }
         )
     }
+
+    #[test]
+    fn parses_query_with_fragments() {
+        let res = parse(
+            r#"{
+  user {
+    name
+    ...standardProfilePic
+    ...anonymousProfilePic @svg
+  }
+}"#,
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![DefinitionNode::Executable(
+                    ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
+                        QueryDefinitionNode {
+                            name: None,
+                            selections: vec![Selection::Field(FieldNode {
+                                name: NameNode::from("user"),
+                                alias: None,
+                                arguments: None,
+                                directives: None,
+                                selections: Some(vec![
+                                    Selection::Field(
+                                        FieldNode::new(Token::Name(Location::ignored(), "name"))
+                                            .unwrap()
+                                    ),
+                                    Selection::Fragment(FragmentSpreadNode {
+                                        name: NameNode::from("standardProfilePic"),
+                                        directives: None,
+                                    }),
+                                    Selection::Fragment(FragmentSpreadNode {
+                                        name: NameNode::from("anonymousProfilePic"),
+                                        directives: Some(vec![DirectiveNode {
+                                            name: NameNode::from("svg"),
+                                            arguments: None,
+                                        }]),
+                                    }),
+                                ])
+                            })]
+                        }
+                    ))
+                )]
+            }
+        )
+    }
 }
