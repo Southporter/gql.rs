@@ -669,10 +669,9 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                                     alias: None,
                                     arguments: None,
                                     directives: None,
-                                    selections: Some(vec![Selection::Field(
-                                        FieldNode::new(Token::Name(Location::ignored(), "name"))
-                                            .unwrap()
-                                    )])
+                                    selections: Some(vec![Selection::Field(FieldNode::from(
+                                        "name"
+                                    ))])
                                 })
                             ]
                         }
@@ -690,9 +689,17 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
     name
     ...standardProfilePic
     ...anonymousProfilePic @svg
+    ... on Page {
+      likeCount
+    }
+    ... @include(if: true) {
+      birthday
+      location
+    }
   }
 }"#,
         );
+        println!("Res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(
             res.unwrap(),
@@ -707,21 +714,45 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                                 arguments: None,
                                 directives: None,
                                 selections: Some(vec![
-                                    Selection::Field(
-                                        FieldNode::new(Token::Name(Location::ignored(), "name"))
-                                            .unwrap()
-                                    ),
-                                    Selection::Fragment(FragmentSpreadNode {
+                                    Selection::Field(FieldNode::from("name")),
+                                    Selection::Fragment(FragmentSpread::Node(FragmentSpreadNode {
                                         name: NameNode::from("standardProfilePic"),
                                         directives: None,
-                                    }),
-                                    Selection::Fragment(FragmentSpreadNode {
+                                    })),
+                                    Selection::Fragment(FragmentSpread::Node(FragmentSpreadNode {
                                         name: NameNode::from("anonymousProfilePic"),
                                         directives: Some(vec![DirectiveNode {
                                             name: NameNode::from("svg"),
                                             arguments: None,
                                         }]),
-                                    }),
+                                    })),
+                                    Selection::Fragment(FragmentSpread::Inline(
+                                        InlineFragmentSpreadNode {
+                                            node_type: Some(NamedTypeNode::from("Page")),
+                                            directives: None,
+                                            selections: vec![Selection::Field(FieldNode::from(
+                                                "likeCount"
+                                            ))]
+                                        }
+                                    )),
+                                    Selection::Fragment(FragmentSpread::Inline(
+                                        InlineFragmentSpreadNode {
+                                            node_type: None,
+                                            directives: Some(vec![DirectiveNode {
+                                                name: NameNode::from("include"),
+                                                arguments: Some(vec![Argument {
+                                                    name: NameNode::from("if"),
+                                                    value: ValueNode::Bool(BooleanValueNode {
+                                                        value: true,
+                                                    })
+                                                }])
+                                            }]),
+                                            selections: vec![
+                                                Selection::Field(FieldNode::from("birthday")),
+                                                Selection::Field(FieldNode::from("location")),
+                                            ]
+                                        }
+                                    ))
                                 ])
                             })]
                         }

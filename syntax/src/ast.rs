@@ -564,7 +564,7 @@ impl<'i> AST<'i> {
     fn parse_selection(&mut self) -> ParseResult<Selection> {
         match self.unwrap_peeked_token()? {
             Token::Name(_, _) => Ok(Selection::Field(self.parse_field_node()?)),
-            Token::Spread(_) => Ok(Selection::Fragment(self.parse_fragment_spread_node()?)),
+            Token::Spread(_) => Ok(Selection::Fragment(self.parse_fragment_spread()?)),
             _ => Err(ParseError::NotImplemented),
         }
     }
@@ -595,13 +595,52 @@ impl<'i> AST<'i> {
         Ok(field)
     }
 
-    fn parse_fragment_spread_node(&mut self) -> ParseResult<FragmentSpreadNode> {
+    fn parse_fragment_spread(&mut self) -> ParseResult<FragmentSpread> {
         self.expect_token(Token::Spread(Location::ignored()))?;
-        let name = self.expect_token(Token::Name(Location::ignored(), "ignored"))?;
+        match self.unwrap_peeked_token()? {
+            &Token::Name(_, "on") => {
+                Ok(FragmentSpread::Inline(self.parse_inline_fragment_spread()?))
+            }
+            &Token::At(_) => Ok(FragmentSpread::Inline(
+                self.parse_anonymous_inline_fragmen_spread()?,
+            )),
+            &Token::Name(_, _) => Ok(FragmentSpread::Node(self.parse_fragment_spread_node()?)),
+            tok => Err(ParseError::UnexpectedToken {
+                location: tok.location(),
+                expected: String::from("One of Token::Name or Token::At"),
+                received: tok.to_string(),
+            }),
+        }
+    }
+
+    fn parse_fragment_spread_node(&mut self) -> ParseResult<FragmentSpreadNode> {
+        let name = self.unwrap_next_token()?;
         let directives = self.parse_directives()?;
         Ok(FragmentSpreadNode {
             name: NameNode::new(name)?,
             directives,
+        })
+    }
+
+    fn parse_inline_fragment_spread(&mut self) -> ParseResult<InlineFragmentSpreadNode> {
+        let _on_tok = self.unwrap_next_token()?;
+        let name = self.unwrap_next_token()?;
+        let directives = self.parse_directives()?;
+        let selections = self.parse_selection_set()?;
+        Ok(InlineFragmentSpreadNode {
+            node_type: Some(NamedTypeNode::new(name)?),
+            directives,
+            selections,
+        })
+    }
+
+    fn parse_anonymous_inline_fragmen_spread(&mut self) -> ParseResult<InlineFragmentSpreadNode> {
+        let directives = self.parse_directives()?;
+        let selections = self.parse_selection_set()?;
+        Ok(InlineFragmentSpreadNode {
+            node_type: None,
+            directives,
+            selections,
         })
     }
 

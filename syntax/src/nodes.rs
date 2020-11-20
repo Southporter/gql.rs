@@ -265,7 +265,7 @@ impl FieldDefinitionNode {
         Ok(FieldDefinitionNode {
             description,
             name: NameNode::new(name)?,
-            arguments: arguments,
+            arguments,
             field_type,
         })
     }
@@ -534,6 +534,16 @@ impl FieldNode {
         })
     }
 
+    pub fn from(name: &str) -> FieldNode {
+        FieldNode {
+            name: NameNode::from(name),
+            alias: None,
+            arguments: None,
+            directives: None,
+            selections: None,
+        }
+    }
+
     pub fn with_alias(&mut self, alias: Token) -> ParseResult<&Self> {
         self.alias = Some(NameNode::new(alias)?);
         Ok(self)
@@ -562,9 +572,22 @@ pub struct FragmentSpreadNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct InlineFragmentSpreadNode {
+    pub node_type: Option<NamedTypeNode>,
+    pub directives: Option<Directives>,
+    pub selections: Selections,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FragmentSpread {
+    Node(FragmentSpreadNode),
+    Inline(InlineFragmentSpreadNode),
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Selection {
     Field(FieldNode),
-    Fragment(FragmentSpreadNode),
+    Fragment(FragmentSpread),
 }
 
 #[derive(Debug, PartialEq)]
