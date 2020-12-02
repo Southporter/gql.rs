@@ -699,7 +699,6 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
   }
 }"#,
         );
-        println!("Res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(
             res.unwrap(),
@@ -760,5 +759,25 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                 )]
             }
         )
+    }
+
+    #[test]
+    fn parse_named_query() {
+        let query = r#"query TestQuery {}"#;
+        let res = parse(query);
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![DefinitionNode::Executable(
+                    ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
+                        QueryDefinitionNode {
+                            name: Some(NameNode::from("TestQuery")),
+                            selections: vec![]
+                        }
+                    ))
+                )]
+            }
+        );
     }
 }

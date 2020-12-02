@@ -165,13 +165,10 @@ impl<'i> AST<'i> {
                 "extend" => Ok(DefinitionNode::Extension(
                     self.parse_type_extension(description)?,
                 )),
+                "query" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
                 _ => Err(ParseError::BadValue),
             },
-            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(
-                ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
-                    self.parse_anonymous_query()?,
-                )),
-            )),
+            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
             _ => Err(ParseError::UnexpectedToken {
                 expected: String::from("Token<Name> or Token<OpenBrace>"),
                 received: tok.to_string().to_owned(),
@@ -205,7 +202,7 @@ impl<'i> AST<'i> {
         } else {
             Err(ParseError::UnexpectedToken {
                 expected: String::from("Token::Name"),
-                received: tok.to_string().to_owned(),
+                received: tok.to_string(),
                 location: tok.location(),
             })
         }
@@ -538,6 +535,46 @@ impl<'i> AST<'i> {
         let name = self.unwrap_next_token()?;
         Ok(VariableNode {
             name: NameNode::new(name)?,
+        })
+    }
+
+    fn parse_executable(&mut self) -> ParseResult<ExecutableDefinitionNode> {
+        let tok = self.unwrap_peeked_token()?;
+        match tok {
+            Token::Name(_, val) => match *val {
+                "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type()?)),
+                _ => Err(ParseError::BadValue),
+            },
+            Token::OpenBrace(_) => Ok(ExecutableDefinitionNode::Operation(
+                OperationTypeNode::Query(self.parse_anonymous_query()?),
+            )),
+            tok => Err(ParseError::UnexpectedToken {
+                expected: String::from(
+                    "One of 'query', 'mutation', 'subscription', 'fragment', or anonymous query",
+                ),
+                received: tok.to_string(),
+                location: tok.location(),
+            }),
+        }
+    }
+
+    fn parse_operation_type(&mut self) -> ParseResult<OperationTypeNode> {
+        if let Token::Name(_, name) = self.unwrap_next_token()? {
+            match name {
+                "query" => Ok(OperationTypeNode::Query(self.parse_query()?)),
+                _ => Err(ParseError::BadValue), // TODO Change error type
+            }
+        } else {
+            Err(ParseError::BadValue)
+        }
+    }
+
+    fn parse_query(&mut self) -> ParseResult<QueryDefinitionNode> {
+        let name = self.unwrap_next_token()?;
+        let selections = self.parse_selection_set()?;
+        Ok(QueryDefinitionNode {
+            name: Some(NameNode::new(name)?),
+            selections,
         })
     }
 
