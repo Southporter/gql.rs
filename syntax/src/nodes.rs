@@ -123,10 +123,16 @@ pub struct VariableNode {
 }
 
 impl VariableNode {
-    pub fn new(tok: Token) -> ParseResult<VariableNode> {
-        Ok(VariableNode {
+    pub fn new(tok: Token) -> ParseResult<Self> {
+        Ok(Self {
             name: NameNode::new(tok)?,
         })
+    }
+
+    pub fn from(name: &str) -> Self {
+        Self {
+            name: NameNode::from(name),
+        }
     }
 }
 
@@ -230,6 +236,13 @@ impl InputValueDefinitionNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct VariableDefinitionNode {
+    pub variable: VariableNode,
+    pub variable_type: TypeNode,
+    pub default_value: Option<ValueNode>,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Argument {
     pub name: NameNode,
     pub value: ValueNode,
@@ -239,12 +252,7 @@ pub type Description = Option<StringValueNode>;
 pub type Arguments = Vec<Argument>;
 pub type ArgumentDefinitions = Vec<InputValueDefinitionNode>;
 pub type Directives = Vec<DirectiveNode>;
-
-// #[derive(Debug)]
-// enum ValueNode {
-//     String(StringValueNode),
-// }
-//
+pub type Variables = Vec<VariableDefinitionNode>;
 
 #[derive(Debug, PartialEq)]
 pub struct FieldDefinitionNode {
@@ -593,6 +601,7 @@ pub enum Selection {
 #[derive(Debug, PartialEq)]
 pub struct QueryDefinitionNode {
     pub name: Option<NameNode>,
+    pub variables: Variables,
     pub selections: Selections,
 }
 

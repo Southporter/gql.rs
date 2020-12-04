@@ -571,17 +571,46 @@ impl<'i> AST<'i> {
 
     fn parse_query(&mut self) -> ParseResult<QueryDefinitionNode> {
         let name = self.unwrap_next_token()?;
+        let variables = self.parse_variables()?;
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: Some(NameNode::new(name)?),
+            variables,
             selections,
         })
+    }
+
+    fn parse_variables(&mut self) -> ParseResult<Variables> {
+        let mut variables = Vec::new();
+        if let Some(_) = self.expect_optional_token(&Token::OpenParen(Location::ignored())) {
+            loop {
+                if let Some(_) = self.expect_optional_token(&Token::CloseParen(Location::ignored()))
+                {
+                    break;
+                }
+                let variable = self.parse_variable()?;
+                self.expect_token(Token::Colon(Location::ignored()))?;
+                let variable_type = self.parse_field_type()?;
+                let mut var = VariableDefinitionNode {
+                    variable,
+                    variable_type,
+                    default_value: None,
+                };
+                if let Some(_) = self.expect_optional_token(&Token::Equals(Location::ignored())) {
+                    let value = self.parse_value()?;
+                    var.default_value = Some(value);
+                }
+                variables.push(var);
+            }
+        }
+        Ok(variables)
     }
 
     fn parse_anonymous_query(&mut self) -> ParseResult<QueryDefinitionNode> {
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: None,
+            variables: vec![],
             selections,
         })
     }

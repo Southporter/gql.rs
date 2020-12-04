@@ -630,6 +630,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
+                            variables: vec![],
                             selections: vec![
                                 Selection::Field(FieldNode {
                                     name: NameNode::from("user"),
@@ -707,6 +708,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
+                            variables: vec![],
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
                                 alias: None,
@@ -763,7 +765,12 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
 
     #[test]
     fn parse_named_query() {
-        let query = r#"query TestQuery {}"#;
+        let query = r#"query TestQuery {
+  user {
+    name,
+    email,
+  }
+}"#;
         let res = parse(query);
         assert!(res.is_ok());
         assert_eq!(
@@ -773,11 +780,86 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: Some(NameNode::from("TestQuery")),
-                            selections: vec![]
+                            variables: vec![],
+                            selections: vec![Selection::Field(FieldNode {
+                                name: NameNode::from("user"),
+                                alias: None,
+                                arguments: None,
+                                directives: None,
+                                selections: Some(vec![
+                                    Selection::Field(FieldNode::from("name")),
+                                    Selection::Field(FieldNode::from("email")),
+                                ])
+                            })]
                         }
                     ))
                 )]
             }
         );
+    }
+
+    #[test]
+    fn parse_query_with_variables() {
+        let query = r#"query TestQuery($email: Email, $isHuman: Boolean = true) {
+  user(email: $email) {
+    name @include(if: $isHuman),
+    permissions,
+  }
+}"#;
+        let res = parse(query);
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![DefinitionNode::Executable(
+                    ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
+                        QueryDefinitionNode {
+                            name: Some(NameNode::from("TestQuery")),
+                            variables: vec![
+                                VariableDefinitionNode {
+                                    variable: VariableNode::from("email"),
+                                    variable_type: TypeNode::Named(NamedTypeNode::from("Email")),
+                                    default_value: None,
+                                },
+                                VariableDefinitionNode {
+                                    variable: VariableNode::from("isHuman"),
+                                    variable_type: TypeNode::Named(NamedTypeNode::from("Boolean")),
+                                    default_value: Some(ValueNode::Bool(BooleanValueNode {
+                                        value: true,
+                                    }))
+                                }
+                            ],
+                            selections: vec![Selection::Field(FieldNode {
+                                name: NameNode::from("user"),
+                                alias: None,
+                                arguments: Some(vec![Argument {
+                                    name: NameNode::from("email"),
+                                    value: ValueNode::Variable(VariableNode::from("email"))
+                                }]),
+                                directives: None,
+                                selections: Some(vec![
+                                    Selection::Field(FieldNode {
+                                        name: NameNode::from("name"),
+                                        alias: None,
+                                        arguments: None,
+                                        directives: Some(vec![DirectiveNode {
+                                            name: NameNode::from("include"),
+                                            arguments: Some(vec![Argument {
+                                                name: NameNode::from("if"),
+                                                value: ValueNode::Variable(VariableNode::from(
+                                                    "isHuman"
+                                                ))
+                                            }])
+                                        }]),
+                                        selections: None,
+                                    }),
+                                    Selection::Field(FieldNode::from("permissions"))
+                                ]),
+                            })]
+                        }
+                    ))
+                )]
+            }
+        )
     }
 }
