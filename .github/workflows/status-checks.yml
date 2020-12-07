@@ -1,4 +1,4 @@
-name: Rust
+name: Status Checks
 
 on: [push]
 
@@ -9,7 +9,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose
+    - name: Check formating
+      run: cargo fmt -- --check
     - name: Run tests
       run: cargo test --verbose
+    - name: Build
+      run: cargo build --verbose
