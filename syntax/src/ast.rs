@@ -559,10 +559,14 @@ impl<'i> AST<'i> {
     }
 
     fn parse_operation_type(&mut self) -> ParseResult<OperationTypeNode> {
-        if let Token::Name(_, name) = self.unwrap_next_token()? {
+        if let Token::Name(loc, name) = self.unwrap_next_token()? {
             match name {
                 "query" => Ok(OperationTypeNode::Query(self.parse_query()?)),
-                _ => Err(ParseError::BadValue), // TODO Change error type
+                _ => Err(ParseError::UnexpectedKeyword {
+                    expected: String::from("One of 'query'"),
+                    received: String::from("name"),
+                    location: loc,
+                }),
             }
         } else {
             Err(ParseError::BadValue)
@@ -588,22 +592,26 @@ impl<'i> AST<'i> {
                 {
                     break;
                 }
-                let variable = self.parse_variable()?;
-                self.expect_token(Token::Colon(Location::ignored()))?;
-                let variable_type = self.parse_field_type()?;
-                let mut var = VariableDefinitionNode {
-                    variable,
-                    variable_type,
-                    default_value: None,
-                };
-                if let Some(_) = self.expect_optional_token(&Token::Equals(Location::ignored())) {
-                    let value = self.parse_value()?;
-                    var.default_value = Some(value);
-                }
-                variables.push(var);
+                variables.push(self.parse_variable_definition()?);
             }
         }
         Ok(variables)
+    }
+
+    fn parse_variable_definition(&mut self) -> ParseResult<VariableDefinitionNode> {
+        let variable = self.parse_variable()?;
+        self.expect_token(Token::Colon(Location::ignored()))?;
+        let variable_type = self.parse_field_type()?;
+        let mut var = VariableDefinitionNode {
+            variable,
+            variable_type,
+            default_value: None,
+        };
+        if let Some(_) = self.expect_optional_token(&Token::Equals(Location::ignored())) {
+            let value = self.parse_value()?;
+            var.default_value = Some(value);
+        }
+        Ok(var)
     }
 
     fn parse_anonymous_query(&mut self) -> ParseResult<QueryDefinitionNode> {
