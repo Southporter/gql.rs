@@ -154,7 +154,6 @@ impl<'i> AST<'i> {
     fn parse_definition(&mut self) -> ParseResult<DefinitionNode> {
         let description = self.parse_description()?;
         let tok = self.unwrap_peeked_token()?;
-        println!("Tok, {:?}", tok);
         match tok {
             Token::Name(_, val) => match *val {
                 "type" | "enum" | "union" | "interface" | "input" | "scalar" => {

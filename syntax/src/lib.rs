@@ -621,7 +621,6 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
   }
 }"#,
         );
-        println!("Res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(
             res.unwrap(),
