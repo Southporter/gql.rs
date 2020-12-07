@@ -123,10 +123,16 @@ pub struct VariableNode {
 }
 
 impl VariableNode {
-    pub fn new(tok: Token) -> ParseResult<VariableNode> {
-        Ok(VariableNode {
+    pub fn new(tok: Token) -> ParseResult<Self> {
+        Ok(Self {
             name: NameNode::new(tok)?,
         })
+    }
+
+    pub fn from(name: &str) -> Self {
+        Self {
+            name: NameNode::from(name),
+        }
     }
 }
 
@@ -230,6 +236,13 @@ impl InputValueDefinitionNode {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct VariableDefinitionNode {
+    pub variable: VariableNode,
+    pub variable_type: TypeNode,
+    pub default_value: Option<ValueNode>,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Argument {
     pub name: NameNode,
     pub value: ValueNode,
@@ -239,12 +252,7 @@ pub type Description = Option<StringValueNode>;
 pub type Arguments = Vec<Argument>;
 pub type ArgumentDefinitions = Vec<InputValueDefinitionNode>;
 pub type Directives = Vec<DirectiveNode>;
-
-// #[derive(Debug)]
-// enum ValueNode {
-//     String(StringValueNode),
-// }
-//
+pub type Variables = Vec<VariableDefinitionNode>;
 
 #[derive(Debug, PartialEq)]
 pub struct FieldDefinitionNode {
@@ -265,7 +273,7 @@ impl FieldDefinitionNode {
         Ok(FieldDefinitionNode {
             description,
             name: NameNode::new(name)?,
-            arguments: arguments,
+            arguments,
             field_type,
         })
     }
@@ -292,15 +300,6 @@ impl EnumValueDefinitionNode {
     }
 }
 
-// struct Location<'a> {
-//     start: usize,
-//     end: usize,
-//     startToken: Token<'a>,
-//     endToken: Token<'a>,
-//     source: &'a str
-// }
-
-// const OPERATION: &'static str = "Operation";
 // pub struct OperationDefinitionNode {
 //     kind: OPERATION,
 //     // location: Location,
@@ -310,13 +309,6 @@ impl EnumValueDefinitionNode {
 //     directives: Vec<DirectiveDefinitionNode>,
 //     selection_set: Vec<SelectionSetNode>
 // }
-
-// pub enum ExecutableDefinitionNode {
-//     Operation(OperationDefinitionNode),
-// Fragment(FragmentDefinitionNode),
-// }
-//
-//
 
 const SCHEMA: &'static str = "SchemaDefinition";
 #[derive(Debug, PartialEq)]
@@ -528,9 +520,107 @@ pub enum TypeSystemExtensionNode {
     Object(ObjectTypeExtensionNode),
 }
 
+type Selections = Vec<Selection>;
+
+#[derive(Debug, PartialEq)]
+pub struct FieldNode {
+    pub name: NameNode,
+    pub alias: Option<NameNode>,
+    pub arguments: Option<Arguments>,
+    pub directives: Option<Directives>,
+    pub selections: Option<Selections>,
+}
+
+impl FieldNode {
+    pub fn new(name: Token) -> ParseResult<FieldNode> {
+        Ok(FieldNode {
+            name: NameNode::new(name)?,
+            alias: None,
+            arguments: None,
+            directives: None,
+            selections: None,
+        })
+    }
+
+    pub fn from(name: &str) -> FieldNode {
+        FieldNode {
+            name: NameNode::from(name),
+            alias: None,
+            arguments: None,
+            directives: None,
+            selections: None,
+        }
+    }
+
+    pub fn with_alias(&mut self, alias: Token) -> ParseResult<&Self> {
+        self.alias = Some(NameNode::new(alias)?);
+        Ok(self)
+    }
+
+    pub fn with_arguments(&mut self, arguments: Option<Arguments>) -> &Self {
+        self.arguments = arguments;
+        self
+    }
+
+    pub fn with_directives(&mut self, directives: Option<Directives>) -> &Self {
+        self.directives = directives;
+        self
+    }
+
+    pub fn with_selections(&mut self, selections: Selections) -> &Self {
+        self.selections = Some(selections);
+        self
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FragmentSpreadNode {
+    pub name: NameNode,
+    pub directives: Option<Directives>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct InlineFragmentSpreadNode {
+    pub node_type: Option<NamedTypeNode>,
+    pub directives: Option<Directives>,
+    pub selections: Selections,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FragmentSpread {
+    Node(FragmentSpreadNode),
+    Inline(InlineFragmentSpreadNode),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Selection {
+    Field(FieldNode),
+    Fragment(FragmentSpread),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct QueryDefinitionNode {
+    pub name: Option<NameNode>,
+    pub variables: Variables,
+    pub selections: Selections,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum OperationTypeNode {
+    Query(QueryDefinitionNode),
+    // Mutation,
+    // Subscription,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutableDefinitionNode {
+    Operation(OperationTypeNode),
+    // Fragment,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum DefinitionNode {
-    // Executable(ExecutableDefinitionNode),
+    Executable(ExecutableDefinitionNode),
     TypeSystem(TypeSystemDefinitionNode),
     Extension(TypeSystemExtensionNode),
 }

@@ -154,8 +154,8 @@ impl<'i> AST<'i> {
     fn parse_definition(&mut self) -> ParseResult<DefinitionNode> {
         let description = self.parse_description()?;
         let tok = self.unwrap_peeked_token()?;
-        if let Token::Name(_, val) = tok {
-            match *val {
+        match tok {
+            Token::Name(_, val) => match *val {
                 "type" | "enum" | "union" | "interface" | "input" | "scalar" => {
                     Ok(DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?,
@@ -164,14 +164,15 @@ impl<'i> AST<'i> {
                 "extend" => Ok(DefinitionNode::Extension(
                     self.parse_type_extension(description)?,
                 )),
+                "query" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
                 _ => Err(ParseError::BadValue),
-            }
-        } else {
-            Err(ParseError::UnexpectedToken {
-                expected: String::from("Token<Name>"),
+            },
+            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
+            _ => Err(ParseError::UnexpectedToken {
+                expected: String::from("Token<Name> or Token<OpenBrace>"),
                 received: tok.to_string().to_owned(),
                 location: tok.location(),
-            })
+            }),
         }
     }
 
@@ -200,7 +201,7 @@ impl<'i> AST<'i> {
         } else {
             Err(ParseError::UnexpectedToken {
                 expected: String::from("Token::Name"),
-                received: tok.to_string().to_owned(),
+                received: tok.to_string(),
                 location: tok.location(),
             })
         }
@@ -533,6 +534,186 @@ impl<'i> AST<'i> {
         let name = self.unwrap_next_token()?;
         Ok(VariableNode {
             name: NameNode::new(name)?,
+        })
+    }
+
+    fn parse_executable(&mut self) -> ParseResult<ExecutableDefinitionNode> {
+        let tok = self.unwrap_peeked_token()?;
+        match tok {
+            Token::Name(_, val) => match *val {
+                "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type()?)),
+                _ => Err(ParseError::BadValue),
+            },
+            Token::OpenBrace(_) => Ok(ExecutableDefinitionNode::Operation(
+                OperationTypeNode::Query(self.parse_anonymous_query()?),
+            )),
+            tok => Err(ParseError::UnexpectedToken {
+                expected: String::from(
+                    "One of 'query', 'mutation', 'subscription', 'fragment', or anonymous query",
+                ),
+                received: tok.to_string(),
+                location: tok.location(),
+            }),
+        }
+    }
+
+    fn parse_operation_type(&mut self) -> ParseResult<OperationTypeNode> {
+        if let Token::Name(loc, name) = self.unwrap_next_token()? {
+            match name {
+                "query" => Ok(OperationTypeNode::Query(self.parse_query()?)),
+                _ => Err(ParseError::UnexpectedKeyword {
+                    expected: String::from("One of 'query'"),
+                    received: String::from("name"),
+                    location: loc,
+                }),
+            }
+        } else {
+            Err(ParseError::BadValue)
+        }
+    }
+
+    fn parse_query(&mut self) -> ParseResult<QueryDefinitionNode> {
+        let name = self.unwrap_next_token()?;
+        let variables = self.parse_variables()?;
+        let selections = self.parse_selection_set()?;
+        Ok(QueryDefinitionNode {
+            name: Some(NameNode::new(name)?),
+            variables,
+            selections,
+        })
+    }
+
+    fn parse_variables(&mut self) -> ParseResult<Variables> {
+        let mut variables = Vec::new();
+        if let Some(_) = self.expect_optional_token(&Token::OpenParen(Location::ignored())) {
+            loop {
+                if let Some(_) = self.expect_optional_token(&Token::CloseParen(Location::ignored()))
+                {
+                    break;
+                }
+                variables.push(self.parse_variable_definition()?);
+            }
+        }
+        Ok(variables)
+    }
+
+    fn parse_variable_definition(&mut self) -> ParseResult<VariableDefinitionNode> {
+        let variable = self.parse_variable()?;
+        self.expect_token(Token::Colon(Location::ignored()))?;
+        let variable_type = self.parse_field_type()?;
+        let mut var = VariableDefinitionNode {
+            variable,
+            variable_type,
+            default_value: None,
+        };
+        if let Some(_) = self.expect_optional_token(&Token::Equals(Location::ignored())) {
+            let value = self.parse_value()?;
+            var.default_value = Some(value);
+        }
+        Ok(var)
+    }
+
+    fn parse_anonymous_query(&mut self) -> ParseResult<QueryDefinitionNode> {
+        let selections = self.parse_selection_set()?;
+        Ok(QueryDefinitionNode {
+            name: None,
+            variables: vec![],
+            selections,
+        })
+    }
+
+    fn parse_selection_set(&mut self) -> ParseResult<Vec<Selection>> {
+        self.expect_token(Token::OpenBrace(Location::ignored()))?;
+        let mut selections = Vec::new();
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
+                break;
+            }
+            selections.push(self.parse_selection()?);
+        }
+        Ok(selections)
+    }
+
+    fn parse_selection(&mut self) -> ParseResult<Selection> {
+        match self.unwrap_peeked_token()? {
+            Token::Name(_, _) => Ok(Selection::Field(self.parse_field_node()?)),
+            Token::Spread(_) => Ok(Selection::Fragment(self.parse_fragment_spread()?)),
+            _ => Err(ParseError::NotImplemented),
+        }
+    }
+
+    fn parse_field_node(&mut self) -> ParseResult<FieldNode> {
+        let mut field: FieldNode;
+
+        let name = self.unwrap_next_token()?;
+        if let Some(_) = self.expect_optional_token(&Token::Colon(Location::ignored())) {
+            let root = self.unwrap_next_token()?;
+            field = FieldNode::new(root)?;
+            field.with_alias(name)?;
+        } else {
+            field = FieldNode::new(name)?;
+        }
+
+        let arguments = self.parse_arguments()?;
+        field.with_arguments(arguments);
+
+        let directives = self.parse_directives()?;
+        field.with_directives(directives);
+
+        if let &Token::OpenBrace(_) = self.unwrap_peeked_token()? {
+            let selections = self.parse_selection_set()?;
+            field.with_selections(selections);
+        }
+
+        Ok(field)
+    }
+
+    fn parse_fragment_spread(&mut self) -> ParseResult<FragmentSpread> {
+        self.expect_token(Token::Spread(Location::ignored()))?;
+        match self.unwrap_peeked_token()? {
+            &Token::Name(_, "on") => {
+                Ok(FragmentSpread::Inline(self.parse_inline_fragment_spread()?))
+            }
+            &Token::At(_) => Ok(FragmentSpread::Inline(
+                self.parse_anonymous_inline_fragmen_spread()?,
+            )),
+            &Token::Name(_, _) => Ok(FragmentSpread::Node(self.parse_fragment_spread_node()?)),
+            tok => Err(ParseError::UnexpectedToken {
+                location: tok.location(),
+                expected: String::from("One of Token::Name or Token::At"),
+                received: tok.to_string(),
+            }),
+        }
+    }
+
+    fn parse_fragment_spread_node(&mut self) -> ParseResult<FragmentSpreadNode> {
+        let name = self.unwrap_next_token()?;
+        let directives = self.parse_directives()?;
+        Ok(FragmentSpreadNode {
+            name: NameNode::new(name)?,
+            directives,
+        })
+    }
+
+    fn parse_inline_fragment_spread(&mut self) -> ParseResult<InlineFragmentSpreadNode> {
+        let _on_tok = self.unwrap_next_token()?;
+        let name = self.unwrap_next_token()?;
+        let directives = self.parse_directives()?;
+        let selections = self.parse_selection_set()?;
+        Ok(InlineFragmentSpreadNode {
+            node_type: Some(NamedTypeNode::new(name)?),
+            directives,
+            selections,
+        })
+    }
+
+    fn parse_anonymous_inline_fragmen_spread(&mut self) -> ParseResult<InlineFragmentSpreadNode> {
+        let directives = self.parse_directives()?;
+        let selections = self.parse_selection_set()?;
+        Ok(InlineFragmentSpreadNode {
+            node_type: None,
+            directives,
+            selections,
         })
     }
 
