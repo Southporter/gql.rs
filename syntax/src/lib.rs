@@ -861,4 +861,27 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
             }
         )
     }
+
+    #[test]
+    fn parse_fragment_definition() {
+        let res = parse(
+            r#"fragment Name on User {
+  name
+}"#,
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![DefinitionNode::Executable(
+                    ExecutableDefinitionNode::Fragment(FragmentDefinitionNode {
+                        name: NameNode::from("Name"),
+                        node_type: NamedTypeNode::from("User"),
+                        directives: None,
+                        selections: vec![Selection::Field(FieldNode::from("name"))],
+                    })
+                ),]
+            }
+        )
+    }
 }

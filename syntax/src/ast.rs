@@ -164,7 +164,7 @@ impl<'i> AST<'i> {
                 "extend" => Ok(DefinitionNode::Extension(
                     self.parse_type_extension(description)?,
                 )),
-                "query" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
+                "query" | "fragment" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
                 _ => Err(ParseError::BadValue),
             },
             Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
@@ -542,6 +542,9 @@ impl<'i> AST<'i> {
         match tok {
             Token::Name(_, val) => match *val {
                 "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type()?)),
+                "fragment" =>
+                    Ok(ExecutableDefinitionNode::Fragment(self.parse_fragment_definition()?))
+                ,
                 _ => Err(ParseError::BadValue),
             },
             Token::OpenBrace(_) => Ok(ExecutableDefinitionNode::Operation(
@@ -558,7 +561,8 @@ impl<'i> AST<'i> {
     }
 
     fn parse_operation_type(&mut self) -> ParseResult<OperationTypeNode> {
-        if let Token::Name(loc, name) = self.unwrap_next_token()? {
+        let keyword = self.unwrap_next_token()?;
+        if let Token::Name(loc, name) = keyword {
             match name {
                 "query" => Ok(OperationTypeNode::Query(self.parse_query()?)),
                 _ => Err(ParseError::UnexpectedKeyword {
@@ -568,7 +572,11 @@ impl<'i> AST<'i> {
                 }),
             }
         } else {
-            Err(ParseError::BadValue)
+            Err(ParseError::UnexpectedToken {
+                expected: "Token<Name>".into(),
+                received: keyword.to_string(),
+                location: keyword.location(),
+            })
         }
     }
 
@@ -666,6 +674,35 @@ impl<'i> AST<'i> {
         }
 
         Ok(field)
+    }
+
+    fn parse_fragment_definition(&mut self) -> ParseResult<FragmentDefinitionNode> {
+        let keyword = self.unwrap_next_token()?;
+        if let Token::Name(loc, name) = keyword {
+            match name {
+                "fragment" => {
+                    let name = self.unwrap_next_token()?;
+                    let _on = self.unwrap_next_token()?;
+                    let node_type = self.unwrap_next_token()?;
+                    let frag_def = FragmentDefinitionNode::new(name, node_type)?
+                        .with_directives(self.parse_directives()?)
+                        .with_selections(self.parse_selection_set()?);
+
+                    Ok(frag_def)
+                }
+                _ => Err(ParseError::UnexpectedKeyword {
+                    expected: String::from("fragment"),
+                    received: String::from(name),
+                    location: loc,
+                }),
+            }
+        } else {
+            Err(ParseError::UnexpectedToken {
+                expected: "Token<Name>".into(),
+                received: keyword.to_string(),
+                location: keyword.location(),
+            })
+        }
     }
 
     fn parse_fragment_spread(&mut self) -> ParseResult<FragmentSpread> {

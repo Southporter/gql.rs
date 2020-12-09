@@ -593,6 +593,35 @@ pub enum FragmentSpread {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct FragmentDefinitionNode {
+    pub name: NameNode,
+    pub node_type: NamedTypeNode,
+    pub directives: Option<Directives>,
+    pub selections: Selections,
+}
+
+impl FragmentDefinitionNode {
+    pub fn new(name: Token, node_type: Token) -> ParseResult<Self> {
+        Ok(Self {
+            name: NameNode::new(name)?,
+            node_type: NamedTypeNode::new(node_type)?,
+            directives: None,
+            selections: Vec::new(),
+        })
+    }
+
+    pub fn with_directives(mut self, directives: Option<Directives>) -> Self {
+        self.directives = directives;
+        self
+    }
+
+    pub fn with_selections(mut self, selections: Selections) -> Self {
+        self.selections = selections;
+        self
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Selection {
     Field(FieldNode),
     Fragment(FragmentSpread),
@@ -615,7 +644,7 @@ pub enum OperationTypeNode {
 #[derive(Debug, PartialEq)]
 pub enum ExecutableDefinitionNode {
     Operation(OperationTypeNode),
-    // Fragment,
+    Fragment(FragmentDefinitionNode),
 }
 
 #[derive(Debug, PartialEq)]
