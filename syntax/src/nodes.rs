@@ -639,17 +639,15 @@ pub enum FragmentSpread {
 pub struct FragmentDefinitionNode {
     pub name: NameNode,
     pub node_type: NamedTypeNode,
-    pub description: Description,
     pub directives: Option<Directives>,
     pub selections: Selections,
 }
 
 impl FragmentDefinitionNode {
-    pub fn new(name: Token, node_type: Token, description: Description) -> ParseResult<Self> {
+    pub fn new(name: Token, node_type: Token) -> ParseResult<Self> {
         Ok(Self {
             name: NameNode::new(name)?,
             node_type: NamedTypeNode::new(node_type)?,
-            description,
             directives: None,
             selections: Vec::new(),
         })
@@ -675,7 +673,6 @@ pub enum Selection {
 #[derive(Debug, PartialEq)]
 pub struct QueryDefinitionNode {
     pub name: Option<NameNode>,
-    pub description: Description,
     pub variables: Variables,
     pub selections: Selections,
 }

@@ -164,14 +164,10 @@ impl<'i> AST<'i> {
                 "extend" => Ok(DefinitionNode::Extension(
                     self.parse_type_extension(description)?,
                 )),
-                "query" | "fragment" => Ok(DefinitionNode::Executable(
-                    self.parse_executable(description)?,
-                )),
+                "query" | "fragment" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
                 _ => Err(ParseError::BadValue),
             },
-            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(
-                self.parse_executable(description)?,
-            )),
+            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
             _ => Err(ParseError::UnexpectedToken {
                 expected: "Token<Name> or Token<OpenBrace>".into(),
                 received: tok.to_string(),
@@ -541,16 +537,13 @@ impl<'i> AST<'i> {
         })
     }
 
-    fn parse_executable(
-        &mut self,
-        description: Description,
-    ) -> ParseResult<ExecutableDefinitionNode> {
+    fn parse_executable(&mut self) -> ParseResult<ExecutableDefinitionNode> {
         let tok = self.unwrap_peeked_token()?;
         match tok {
             Token::Name(_, val) => match *val {
-                "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type(description)?)),
+                "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type()?)),
                 "fragment" =>
-                    Ok(ExecutableDefinitionNode::Fragment(self.parse_fragment_definition(description)?))
+                    Ok(ExecutableDefinitionNode::Fragment(self.parse_fragment_definition()?))
                 ,
                 _ => Err(ParseError::BadValue),
             },
@@ -567,11 +560,11 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_operation_type(&mut self, description: Description) -> ParseResult<OperationTypeNode> {
+    fn parse_operation_type(&mut self) -> ParseResult<OperationTypeNode> {
         let keyword = self.unwrap_next_token()?;
         if let Token::Name(loc, name) = keyword {
             match name {
-                "query" => Ok(OperationTypeNode::Query(self.parse_query(description)?)),
+                "query" => Ok(OperationTypeNode::Query(self.parse_query()?)),
                 _ => Err(ParseError::UnexpectedKeyword {
                     expected: "One of 'query'".into(),
                     received: "name".into(),
@@ -587,13 +580,12 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_query(&mut self, description: Description) -> ParseResult<QueryDefinitionNode> {
+    fn parse_query(&mut self) -> ParseResult<QueryDefinitionNode> {
         let name = self.unwrap_next_token()?;
         let variables = self.parse_variables()?;
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: Some(NameNode::new(name)?),
-            description,
             variables,
             selections,
         })
@@ -633,7 +625,6 @@ impl<'i> AST<'i> {
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: None,
-            description: None,
             variables: vec![],
             selections,
         })
@@ -685,10 +676,7 @@ impl<'i> AST<'i> {
         Ok(field)
     }
 
-    fn parse_fragment_definition(
-        &mut self,
-        description: Description,
-    ) -> ParseResult<FragmentDefinitionNode> {
+    fn parse_fragment_definition(&mut self) -> ParseResult<FragmentDefinitionNode> {
         let keyword = self.unwrap_next_token()?;
         if let Token::Name(loc, name) = keyword {
             match name {
@@ -696,7 +684,7 @@ impl<'i> AST<'i> {
                     let name = self.unwrap_next_token()?;
                     let _on = self.unwrap_next_token()?;
                     let node_type = self.unwrap_next_token()?;
-                    let frag_def = FragmentDefinitionNode::new(name, node_type, description)?
+                    let frag_def = FragmentDefinitionNode::new(name, node_type)?
                         .with_directives(self.parse_directives()?)
                         .with_selections(self.parse_selection_set()?);
 
