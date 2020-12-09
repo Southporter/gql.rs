@@ -164,13 +164,17 @@ impl<'i> AST<'i> {
                 "extend" => Ok(DefinitionNode::Extension(
                     self.parse_type_extension(description)?,
                 )),
-                "query" | "fragment" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
+                "query" | "fragment" => Ok(DefinitionNode::Executable(
+                    self.parse_executable(description)?,
+                )),
                 _ => Err(ParseError::BadValue),
             },
-            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
+            Token::OpenBrace(_) => Ok(DefinitionNode::Executable(
+                self.parse_executable(description)?,
+            )),
             _ => Err(ParseError::UnexpectedToken {
-                expected: String::from("Token<Name> or Token<OpenBrace>"),
-                received: tok.to_string().to_owned(),
+                expected: "Token<Name> or Token<OpenBrace>".into(),
+                received: tok.to_string(),
                 location: tok.location(),
             }),
         }
@@ -200,7 +204,7 @@ impl<'i> AST<'i> {
             }
         } else {
             Err(ParseError::UnexpectedToken {
-                expected: String::from("Token::Name"),
+                expected: "Token::Name".into(),
                 received: tok.to_string(),
                 location: tok.location(),
             })
@@ -537,13 +541,16 @@ impl<'i> AST<'i> {
         })
     }
 
-    fn parse_executable(&mut self) -> ParseResult<ExecutableDefinitionNode> {
+    fn parse_executable(
+        &mut self,
+        description: Description,
+    ) -> ParseResult<ExecutableDefinitionNode> {
         let tok = self.unwrap_peeked_token()?;
         match tok {
             Token::Name(_, val) => match *val {
-                "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type()?)),
+                "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type(description)?)),
                 "fragment" =>
-                    Ok(ExecutableDefinitionNode::Fragment(self.parse_fragment_definition()?))
+                    Ok(ExecutableDefinitionNode::Fragment(self.parse_fragment_definition(description)?))
                 ,
                 _ => Err(ParseError::BadValue),
             },
@@ -560,14 +567,14 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_operation_type(&mut self) -> ParseResult<OperationTypeNode> {
+    fn parse_operation_type(&mut self, description: Description) -> ParseResult<OperationTypeNode> {
         let keyword = self.unwrap_next_token()?;
         if let Token::Name(loc, name) = keyword {
             match name {
-                "query" => Ok(OperationTypeNode::Query(self.parse_query()?)),
+                "query" => Ok(OperationTypeNode::Query(self.parse_query(description)?)),
                 _ => Err(ParseError::UnexpectedKeyword {
-                    expected: String::from("One of 'query'"),
-                    received: String::from("name"),
+                    expected: "One of 'query'".into(),
+                    received: "name".into(),
                     location: loc,
                 }),
             }
@@ -580,12 +587,13 @@ impl<'i> AST<'i> {
         }
     }
 
-    fn parse_query(&mut self) -> ParseResult<QueryDefinitionNode> {
+    fn parse_query(&mut self, description: Description) -> ParseResult<QueryDefinitionNode> {
         let name = self.unwrap_next_token()?;
         let variables = self.parse_variables()?;
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: Some(NameNode::new(name)?),
+            description,
             variables,
             selections,
         })
@@ -625,6 +633,7 @@ impl<'i> AST<'i> {
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: None,
+            description: None,
             variables: vec![],
             selections,
         })
@@ -676,7 +685,10 @@ impl<'i> AST<'i> {
         Ok(field)
     }
 
-    fn parse_fragment_definition(&mut self) -> ParseResult<FragmentDefinitionNode> {
+    fn parse_fragment_definition(
+        &mut self,
+        description: Description,
+    ) -> ParseResult<FragmentDefinitionNode> {
         let keyword = self.unwrap_next_token()?;
         if let Token::Name(loc, name) = keyword {
             match name {
@@ -684,15 +696,15 @@ impl<'i> AST<'i> {
                     let name = self.unwrap_next_token()?;
                     let _on = self.unwrap_next_token()?;
                     let node_type = self.unwrap_next_token()?;
-                    let frag_def = FragmentDefinitionNode::new(name, node_type)?
+                    let frag_def = FragmentDefinitionNode::new(name, node_type, description)?
                         .with_directives(self.parse_directives()?)
                         .with_selections(self.parse_selection_set()?);
 
                     Ok(frag_def)
                 }
                 _ => Err(ParseError::UnexpectedKeyword {
-                    expected: String::from("fragment"),
-                    received: String::from(name),
+                    expected: "fragment".into(),
+                    received: name.into(),
                     location: loc,
                 }),
             }
@@ -717,7 +729,7 @@ impl<'i> AST<'i> {
             &Token::Name(_, _) => Ok(FragmentSpread::Node(self.parse_fragment_spread_node()?)),
             tok => Err(ParseError::UnexpectedToken {
                 location: tok.location(),
-                expected: String::from("One of Token::Name or Token::At"),
+                expected: "One of Token::Name or Token::At".into(),
                 received: tok.to_string(),
             }),
         }
@@ -763,7 +775,7 @@ impl<'i> AST<'i> {
                     } else {
                         Err(ParseError::UnexpectedToken {
                             expected: tok.to_string(),
-                            received: actual.to_string().to_owned(),
+                            received: actual.to_string(),
                             location: actual.location(),
                         })
                     }

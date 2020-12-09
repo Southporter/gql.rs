@@ -549,7 +549,6 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
             extend type User @accessLevel
             "#,
         );
-        println!("res: {:?}", res);
         assert!(res.is_ok());
         assert_eq!(
             res.unwrap(),
@@ -629,6 +628,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
+                            description: None,
                             variables: vec![],
                             selections: vec![
                                 Selection::Field(FieldNode {
@@ -707,6 +707,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
+                            description: None,
                             variables: vec![],
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
@@ -779,6 +780,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: Some(NameNode::from("TestQuery")),
+                            description: None,
                             variables: vec![],
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
@@ -814,6 +816,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: Some(NameNode::from("TestQuery")),
+                            description: None,
                             variables: vec![
                                 VariableDefinitionNode {
                                     variable: VariableNode::from("email"),
@@ -877,6 +880,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Fragment(FragmentDefinitionNode {
                         name: NameNode::from("Name"),
                         node_type: NamedTypeNode::from("User"),
+                        description: None,
                         directives: None,
                         selections: vec![Selection::Field(FieldNode::from("name"))],
                     })
