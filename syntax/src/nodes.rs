@@ -622,6 +622,15 @@ pub struct FragmentSpreadNode {
     pub directives: Option<Directives>,
 }
 
+impl From<&str> for FragmentSpreadNode {
+    fn from(name: &str) -> Self {
+        Self {
+            name: NameNode::from(name),
+            directives: None,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct InlineFragmentSpreadNode {
     pub node_type: Option<NamedTypeNode>,

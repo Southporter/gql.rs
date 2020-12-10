@@ -867,20 +867,47 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
         let res = parse(
             r#"fragment Name on User {
   name
-}"#,
+}
+
+fragment friendFields on User @traverse(depth: 1) {
+  id
+  ...Name
+}
+"#,
         );
         assert!(res.is_ok());
         assert_eq!(
             res.unwrap(),
             Document {
-                definitions: vec![DefinitionNode::Executable(
-                    ExecutableDefinitionNode::Fragment(FragmentDefinitionNode {
-                        name: NameNode::from("Name"),
-                        node_type: NamedTypeNode::from("User"),
-                        directives: None,
-                        selections: vec![Selection::Field(FieldNode::from("name"))],
-                    })
-                ),]
+                definitions: vec![
+                    DefinitionNode::Executable(ExecutableDefinitionNode::Fragment(
+                        FragmentDefinitionNode {
+                            name: NameNode::from("Name"),
+                            node_type: NamedTypeNode::from("User"),
+                            directives: None,
+                            selections: vec![Selection::Field(FieldNode::from("name"))],
+                        }
+                    )),
+                    DefinitionNode::Executable(ExecutableDefinitionNode::Fragment(
+                        FragmentDefinitionNode {
+                            name: NameNode::from("friendFields"),
+                            node_type: NamedTypeNode::from("User"),
+                            directives: Some(vec![DirectiveNode {
+                                name: NameNode::from("traverse"),
+                                arguments: Some(vec![Argument {
+                                    name: NameNode::from("depth"),
+                                    value: ValueNode::Int(IntValueNode { value: 1 })
+                                }])
+                            }]),
+                            selections: vec![
+                                Selection::Field(FieldNode::from("id")),
+                                Selection::Fragment(FragmentSpread::Node(
+                                    FragmentSpreadNode::from("Name")
+                                ))
+                            ]
+                        }
+                    ))
+                ]
             }
         )
     }
