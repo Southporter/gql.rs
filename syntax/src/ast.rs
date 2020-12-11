@@ -591,7 +591,7 @@ impl<'i> AST<'i> {
         })
     }
 
-    fn parse_variables(&mut self) -> ParseResult<Variables> {
+    fn parse_variables(&mut self) -> ParseResult<Option<Variables>> {
         let mut variables = Vec::new();
         if let Some(_) = self.expect_optional_token(&Token::OpenParen(Location::ignored())) {
             loop {
@@ -602,7 +602,11 @@ impl<'i> AST<'i> {
                 variables.push(self.parse_variable_definition()?);
             }
         }
-        Ok(variables)
+        if variables.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(variables))
+        }
     }
 
     fn parse_variable_definition(&mut self) -> ParseResult<VariableDefinitionNode> {
@@ -625,7 +629,7 @@ impl<'i> AST<'i> {
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: None,
-            variables: vec![],
+            variables: None,
             selections,
         })
     }

@@ -27,3 +27,84 @@ impl fmt::Display for Document {
         write!(f, "Document<{} definitions>", self.definitions.len())
     }
 }
+
+use crate::nodes::*;
+use std::default::Default;
+impl Default for Document {
+    fn default() -> Self {
+        Self {
+            definitions: vec![
+                DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
+                    TypeDefinitionNode::Scalar(ScalarTypeDefinitionNode {
+                        name: NameNode::from("Int"),
+                        description: Some(StringValueNode::from(
+                            "A signed, 32-bit, non-fractional number",
+                            false,
+                        )),
+                        directives: None,
+                    }),
+                )),
+                DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
+                    TypeDefinitionNode::Scalar(ScalarTypeDefinitionNode {
+                        name: NameNode::from("Short"),
+                        description: Some(StringValueNode::from(
+                            "A signed, 8-bit, non-fractional number",
+                            false,
+                        )),
+                        directives: None,
+                    }),
+                )),
+                DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
+                    TypeDefinitionNode::Scalar(ScalarTypeDefinitionNode {
+                        name: NameNode::from("Long"),
+                        description: Some(StringValueNode::from(
+                            "A signed, 64-bit, non-fractional number",
+                            false,
+                        )),
+                        directives: None,
+                    }),
+                )),
+                DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
+                    TypeDefinitionNode::Scalar(ScalarTypeDefinitionNode {
+                        name: NameNode::from("TinyString"),
+                        description: Some(StringValueNode::from(
+                            "A string value with a maximum of 255 bytes",
+                            false,
+                        )),
+                        directives: None,
+                    }),
+                )),
+                DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
+                    TypeDefinitionNode::Scalar(ScalarTypeDefinitionNode {
+                        name: NameNode::from("String"),
+                        description: Some(StringValueNode::from(
+                            "A string value with a maximum of 65,535 bytes",
+                            false,
+                        )),
+                        directives: None,
+                    }),
+                )),
+                DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
+                    TypeDefinitionNode::Scalar(ScalarTypeDefinitionNode {
+                        name: NameNode::from("MediumString"),
+                        description: Some(StringValueNode::from(
+                            "A string value with a maximum of 16,777,215 bytes",
+                            false,
+                        )),
+                        directives: None,
+                    }),
+                )),
+                DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
+                    TypeDefinitionNode::Scalar(ScalarTypeDefinitionNode {
+                        name: NameNode::from("LongString"),
+                        description: Some(StringValueNode::from(
+                            "A string value with a maximum of 4,294,967,295 bytes (4GB)",
+                            false,
+                        )),
+                        directives: None,
+                    }),
+                )),
+            ],
+        }
+    }
+}

@@ -378,6 +378,16 @@ impl ScalarTypeDefinitionNode {
     }
 }
 
+impl From<&str> for ScalarTypeDefinitionNode {
+    fn from(name: &str) -> Self {
+        Self {
+            name: NameNode::from(name),
+            description: None,
+            directives: None,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct ObjectTypeDefinitionNode {
     pub description: Description,
@@ -682,7 +692,7 @@ pub enum Selection {
 #[derive(Debug, PartialEq)]
 pub struct QueryDefinitionNode {
     pub name: Option<NameNode>,
-    pub variables: Variables,
+    pub variables: Option<Variables>,
     pub selections: Selections,
 }
 

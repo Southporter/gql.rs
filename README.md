@@ -28,7 +28,6 @@ GQL will have the following built in types:
 * Int (equivalent to i32)
 * Short (i8)
 * Long (i64)
-* BigInt (undetermined)
 
 ##### Floats
 * Float (equivalent to f32)

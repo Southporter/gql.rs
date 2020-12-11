@@ -18,6 +18,7 @@ mod ast;
 pub mod document;
 pub mod error;
 pub mod lexer;
+pub mod macros;
 mod nodes;
 pub mod token;
 mod validation;
@@ -629,7 +630,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
-                            variables: vec![],
+                            variables: None,
                             selections: vec![
                                 Selection::Field(FieldNode {
                                     name: NameNode::from("user"),
@@ -707,7 +708,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
-                            variables: vec![],
+                            variables: None,
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
                                 alias: None,
@@ -779,7 +780,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: Some(NameNode::from("TestQuery")),
-                            variables: vec![],
+                            variables: None,
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
                                 alias: None,
@@ -814,7 +815,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: Some(NameNode::from("TestQuery")),
-                            variables: vec![
+                            variables: Some(vec![
                                 VariableDefinitionNode {
                                     variable: VariableNode::from("email"),
                                     variable_type: TypeNode::Named(NamedTypeNode::from("Email")),
@@ -827,7 +828,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                                         value: true,
                                     }))
                                 }
-                            ],
+                            ]),
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
                                 alias: None,
