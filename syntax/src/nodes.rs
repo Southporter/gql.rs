@@ -1,6 +1,7 @@
 use crate::error::{ParseError, ParseResult, ValidationError};
 use crate::token::Token;
 use crate::validation::{self, ValidExtensionNode, ValidNode, ValidationResult};
+use std::convert::TryFrom;
 use std::rc::Rc;
 
 pub mod object_type_extension;
@@ -26,17 +27,34 @@ impl NameNode {
                 value: value.to_owned(),
             }),
             _ => Err(ParseError::UnexpectedToken {
-                expected: String::from("Token<Name>"),
-                received: token.to_string().to_owned(),
+                expected: "Token<Name>".into(),
+                received: token.to_string(),
                 location: token.location(),
             }),
         }
     }
+}
 
-    /// Used internally for testing. No error is thrown.
-    pub fn from(name: &str) -> NameNode {
+impl From<&str> for NameNode {
+    fn from(name: &str) -> NameNode {
         NameNode {
             value: String::from(name),
+        }
+    }
+}
+
+impl<'a> TryFrom<Token<'a>> for NameNode {
+    type Error = ParseError;
+    fn try_from(token: Token<'a>) -> Result<Self, Self::Error> {
+        match token {
+            Token::Name(_, value) => Ok(NameNode {
+                value: value.to_owned(),
+            }),
+            _ => Err(ParseError::UnexpectedToken {
+                expected: "Token<Name>".into(),
+                received: token.to_string(),
+                location: token.location(),
+            }),
         }
     }
 }
@@ -59,8 +77,8 @@ impl StringValueNode {
                 block: true,
             }),
             _ => Err(ParseError::UnexpectedToken {
-                expected: String::from("Token<Str> or Token<BlockStr>"),
-                received: token.to_string().to_owned(),
+                expected: "Token<Str> or Token<BlockStr>".into(),
+                received: token.to_string(),
                 location: token.location(),
             }),
         }
@@ -68,7 +86,7 @@ impl StringValueNode {
 
     pub fn from(content: &str, block: bool) -> StringValueNode {
         StringValueNode {
-            value: String::from(content),
+            value: content.into(),
             block,
         }
     }
@@ -85,15 +103,23 @@ impl NamedTypeNode {
     /// of type Token::Name
     pub fn new(tok: Token) -> ParseResult<NamedTypeNode> {
         Ok(NamedTypeNode {
-            name: NameNode::new(tok)?,
+            name: NameNode::try_from(tok)?,
         })
     }
+}
 
+impl From<&str> for NamedTypeNode {
     /// Used for internal testing.
-    pub fn from(name: &str) -> NamedTypeNode {
-        NamedTypeNode {
-            name: NameNode::from(name),
-        }
+    fn from(name: &str) -> NamedTypeNode {
+        NamedTypeNode { name: name.into() }
+    }
+}
+
+impl<'a> TryFrom<Token<'a>> for NamedTypeNode {
+    type Error = ParseError;
+    fn try_from(token: Token<'a>) -> Result<Self, Self::Error> {
+        let name = NameNode::try_from(token)?;
+        Ok(NamedTypeNode { name })
     }
 }
 
@@ -128,8 +154,10 @@ impl VariableNode {
             name: NameNode::new(tok)?,
         })
     }
+}
 
-    pub fn from(name: &str) -> Self {
+impl From<&str> for VariableNode {
+    fn from(name: &str) -> Self {
         Self {
             name: NameNode::from(name),
         }
@@ -542,16 +570,6 @@ impl FieldNode {
         })
     }
 
-    pub fn from(name: &str) -> FieldNode {
-        FieldNode {
-            name: NameNode::from(name),
-            alias: None,
-            arguments: None,
-            directives: None,
-            selections: None,
-        }
-    }
-
     pub fn with_alias(&mut self, alias: Token) -> ParseResult<&Self> {
         self.alias = Some(NameNode::new(alias)?);
         Ok(self)
@@ -573,10 +591,44 @@ impl FieldNode {
     }
 }
 
+impl From<&str> for FieldNode {
+    fn from(name: &str) -> FieldNode {
+        FieldNode {
+            name: NameNode::from(name),
+            alias: None,
+            arguments: None,
+            directives: None,
+            selections: None,
+        }
+    }
+}
+
+impl<'a> TryFrom<Token<'a>> for FieldNode {
+    type Error = ParseError;
+    fn try_from(token: Token<'a>) -> Result<Self, Self::Error> {
+        Ok(FieldNode {
+            name: NameNode::try_from(token)?,
+            alias: None,
+            arguments: None,
+            directives: None,
+            selections: None,
+        })
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct FragmentSpreadNode {
     pub name: NameNode,
     pub directives: Option<Directives>,
+}
+
+impl From<&str> for FragmentSpreadNode {
+    fn from(name: &str) -> Self {
+        Self {
+            name: NameNode::from(name),
+            directives: None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -590,6 +642,35 @@ pub struct InlineFragmentSpreadNode {
 pub enum FragmentSpread {
     Node(FragmentSpreadNode),
     Inline(InlineFragmentSpreadNode),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FragmentDefinitionNode {
+    pub name: NameNode,
+    pub node_type: NamedTypeNode,
+    pub directives: Option<Directives>,
+    pub selections: Selections,
+}
+
+impl FragmentDefinitionNode {
+    pub fn new(name: Token, node_type: Token) -> ParseResult<Self> {
+        Ok(Self {
+            name: NameNode::new(name)?,
+            node_type: NamedTypeNode::new(node_type)?,
+            directives: None,
+            selections: Vec::new(),
+        })
+    }
+
+    pub fn with_directives(mut self, directives: Option<Directives>) -> Self {
+        self.directives = directives;
+        self
+    }
+
+    pub fn with_selections(mut self, selections: Selections) -> Self {
+        self.selections = selections;
+        self
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -615,7 +696,7 @@ pub enum OperationTypeNode {
 #[derive(Debug, PartialEq)]
 pub enum ExecutableDefinitionNode {
     Operation(OperationTypeNode),
-    // Fragment,
+    Fragment(FragmentDefinitionNode),
 }
 
 #[derive(Debug, PartialEq)]

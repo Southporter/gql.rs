@@ -164,13 +164,13 @@ impl<'i> AST<'i> {
                 "extend" => Ok(DefinitionNode::Extension(
                     self.parse_type_extension(description)?,
                 )),
-                "query" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
+                "query" | "fragment" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
                 _ => Err(ParseError::BadValue),
             },
             Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
             _ => Err(ParseError::UnexpectedToken {
-                expected: String::from("Token<Name> or Token<OpenBrace>"),
-                received: tok.to_string().to_owned(),
+                expected: "Token<Name> or Token<OpenBrace>".into(),
+                received: tok.to_string(),
                 location: tok.location(),
             }),
         }
@@ -200,7 +200,7 @@ impl<'i> AST<'i> {
             }
         } else {
             Err(ParseError::UnexpectedToken {
-                expected: String::from("Token::Name"),
+                expected: "Token::Name".into(),
                 received: tok.to_string(),
                 location: tok.location(),
             })
@@ -542,6 +542,9 @@ impl<'i> AST<'i> {
         match tok {
             Token::Name(_, val) => match *val {
                 "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type()?)),
+                "fragment" =>
+                    Ok(ExecutableDefinitionNode::Fragment(self.parse_fragment_definition()?))
+                ,
                 _ => Err(ParseError::BadValue),
             },
             Token::OpenBrace(_) => Ok(ExecutableDefinitionNode::Operation(
@@ -558,17 +561,22 @@ impl<'i> AST<'i> {
     }
 
     fn parse_operation_type(&mut self) -> ParseResult<OperationTypeNode> {
-        if let Token::Name(loc, name) = self.unwrap_next_token()? {
+        let keyword = self.unwrap_next_token()?;
+        if let Token::Name(loc, name) = keyword {
             match name {
                 "query" => Ok(OperationTypeNode::Query(self.parse_query()?)),
                 _ => Err(ParseError::UnexpectedKeyword {
-                    expected: String::from("One of 'query'"),
-                    received: String::from("name"),
+                    expected: "One of 'query'".into(),
+                    received: "name".into(),
                     location: loc,
                 }),
             }
         } else {
-            Err(ParseError::BadValue)
+            Err(ParseError::UnexpectedToken {
+                expected: "Token<Name>".into(),
+                received: keyword.to_string(),
+                location: keyword.location(),
+            })
         }
     }
 
@@ -668,6 +676,35 @@ impl<'i> AST<'i> {
         Ok(field)
     }
 
+    fn parse_fragment_definition(&mut self) -> ParseResult<FragmentDefinitionNode> {
+        let keyword = self.unwrap_next_token()?;
+        if let Token::Name(loc, name) = keyword {
+            match name {
+                "fragment" => {
+                    let name = self.unwrap_next_token()?;
+                    let _on = self.unwrap_next_token()?;
+                    let node_type = self.unwrap_next_token()?;
+                    let frag_def = FragmentDefinitionNode::new(name, node_type)?
+                        .with_directives(self.parse_directives()?)
+                        .with_selections(self.parse_selection_set()?);
+
+                    Ok(frag_def)
+                }
+                _ => Err(ParseError::UnexpectedKeyword {
+                    expected: "fragment".into(),
+                    received: name.into(),
+                    location: loc,
+                }),
+            }
+        } else {
+            Err(ParseError::UnexpectedToken {
+                expected: "Token<Name>".into(),
+                received: keyword.to_string(),
+                location: keyword.location(),
+            })
+        }
+    }
+
     fn parse_fragment_spread(&mut self) -> ParseResult<FragmentSpread> {
         self.expect_token(Token::Spread(Location::ignored()))?;
         match self.unwrap_peeked_token()? {
@@ -680,7 +717,7 @@ impl<'i> AST<'i> {
             &Token::Name(_, _) => Ok(FragmentSpread::Node(self.parse_fragment_spread_node()?)),
             tok => Err(ParseError::UnexpectedToken {
                 location: tok.location(),
-                expected: String::from("One of Token::Name or Token::At"),
+                expected: "One of Token::Name or Token::At".into(),
                 received: tok.to_string(),
             }),
         }
@@ -726,7 +763,7 @@ impl<'i> AST<'i> {
                     } else {
                         Err(ParseError::UnexpectedToken {
                             expected: tok.to_string(),
-                            received: actual.to_string().to_owned(),
+                            received: actual.to_string(),
                             location: actual.location(),
                         })
                     }
