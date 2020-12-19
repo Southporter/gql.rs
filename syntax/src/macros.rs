@@ -4,10 +4,26 @@
 /// a [`Document`].
 ///
 /// [`Document`]: ../document/struct.Document.html
+///
+/// # Examples
+/// ```
+/// use syntax::gql;
+///
+/// let doc = gql!(r#"{
+///   hero {
+///     name
+///     friends {
+///       name
+///     }
+///   }
+/// }"#);
+/// assert!(doc.is_ok());
+/// assert!(doc.unwrap().definitions.len() == 1);
+/// ```
 #[macro_export]
 macro_rules! gql {
     ($input:expr) => {{
-        crate::parse($input)
+        $crate::parse($input)
     }};
 }
 
