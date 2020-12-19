@@ -103,6 +103,55 @@ Min: {u128_min}
 Max:  {u128_max}
 """
 scalar BigUint
+
+"""Float
+A signed, 32-bit, fractional number.
+For more information see [f32 docs](https://doc.rust-lang.org/std/primitive.f32.html).
+"""
+scalar Float
+
+"""Double
+A signed, 64-bit, fractional number.
+For more information see [f64 docs](https://doc.rust-lang.org/std/primitive.f64.html).
+"""
+scalar Float
+
+"""DateTime
+A field used to represent a date and time.
+"""
+scalar DateTime
+
+"""Date
+A field used to represent a date.
+"""
+scalar Date
+
+"""Time
+A field used to represent a time.
+"""
+scalar Time
+
+"""Boolean
+Used to represent true and false
+"""
+scalar Boolean
+
+"""ID
+Used as a unique identifier.
+"""
+scalar ID
+
+
+"""Schema
+The root of any interaction with the database.
+"""
+schema Schema {{
+    query: Query
+    mutation: Mutation
+}}
+
+type Query {{}}
+type Mutation {{}}
 "#,
             i8_min = i8::MIN,
             i8_max = i8::MAX,

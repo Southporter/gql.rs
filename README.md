@@ -36,3 +36,4 @@ GQL will have the following built in types:
 ##### Date/Time
 * Date
 * Time
+* DateTime
