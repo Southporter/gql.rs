@@ -132,6 +132,7 @@ impl<'a> Lexer<'a> {
                 ')' => self.lex_close_paren(),
                 '[' => self.lex_open_square(),
                 ']' => self.lex_close_square(),
+                '#' => self.ignore_comments(),
                 ' ' | '\t' | ',' => self.ignore_whitespace(),
                 '\n' => self.ignore_newline(),
                 '"' => self.lex_string(index),
@@ -796,6 +797,18 @@ text""""#,
                 Token::End,
             ]
         );
+    }
+
+    #[test]
+    fn lex_comment() {
+        println!("Test comment");
+        let comments = tokenize(
+            r#"# this is a comment
+# And so is this
+"#,
+        );
+        assert!(comments.is_ok());
+        assert!(comments.unwrap(), vec![Token::Start, Token::End,])
     }
 
     #[test]

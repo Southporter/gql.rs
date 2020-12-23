@@ -32,7 +32,7 @@ use crate::gql;
 use std::default::Default;
 impl Default for Document {
     fn default() -> Self {
-        gql!(&format!(
+        let doc = gql!(&format!(
             r#"
 """Int
 A signed, 32-bit, non-fractional number.
@@ -116,6 +116,16 @@ For more information see [f64 docs](https://doc.rust-lang.org/std/primitive.f64.
 """
 scalar Float
 
+"""TinyString
+A small string made up of 255 bytes.
+"""
+scalar TinyString
+
+"""String
+A string made up of a maximum of 65,535 bytes. This should be sufficient for most use cases.
+"""
+scalar String
+
 """DateTime
 A field used to represent a date and time.
 """
@@ -145,13 +155,10 @@ scalar ID
 """Schema
 The root of any interaction with the database.
 """
-schema Schema {{
-    query: Query
-    mutation: Mutation
-}}
-
-type Query {{}}
-type Mutation {{}}
+# schema Schema {{
+#   query: Query
+#    mutation: Mutation
+#}}
 "#,
             i8_min = i8::MIN,
             i8_max = i8::MAX,
@@ -173,7 +180,10 @@ type Mutation {{}}
             u64_max = u64::MAX,
             u128_min = u128::MIN,
             u128_max = u128::MAX,
-        ))
-        .expect("Default schema is invalid")
+        ));
+
+        // .expect("Default schema is invalid")
+        println!("Debugging: {:?}", doc);
+        doc.expect("Default schema is invalid")
     }
 }

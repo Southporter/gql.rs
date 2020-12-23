@@ -155,7 +155,7 @@ impl<'i> AST<'i> {
         let description = self.parse_description()?;
         let tok = self.unwrap_peeked_token()?;
         match tok {
-            Token::Name(_, val) => match *val {
+            Token::Name(loc, val) => match *val {
                 "type" | "enum" | "union" | "interface" | "input" | "scalar" => {
                     Ok(DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?,
@@ -165,7 +165,11 @@ impl<'i> AST<'i> {
                     self.parse_type_extension(description)?,
                 )),
                 "query" | "fragment" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
-                _ => Err(ParseError::BadValue),
+                name => Err(ParseError::UnexpectedKeyword {
+                    expected: "A valid GraphQL keyword".into(),
+                    received: name.into(),
+                    location: *loc,
+                }),
             },
             Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
             _ => Err(ParseError::UnexpectedToken {
