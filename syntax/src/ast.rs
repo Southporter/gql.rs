@@ -5,7 +5,7 @@ use crate::nodes::object_type_extension::ObjectTypeExtensionNode;
 use crate::nodes::*;
 use crate::token::{Location, Token};
 use std::iter::{Iterator, Peekable};
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct AST<'i> {
     lexer: Peekable<Lexer<'i>>,
@@ -397,7 +397,7 @@ impl<'i> AST<'i> {
             )?);
         }
         if let Some(_) = self.expect_optional_token(&Token::Bang(Location::ignored())) {
-            field_type = TypeNode::NonNull(Rc::new(field_type));
+            field_type = TypeNode::NonNull(Arc::new(field_type));
         }
         Ok(field_type)
     }

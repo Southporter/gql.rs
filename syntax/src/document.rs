@@ -152,9 +152,9 @@ Used as a unique identifier.
 scalar ID
 
 
-"""Schema
-The root of any interaction with the database.
-"""
+# """Schema
+# The root of any interaction with the database.
+# """
 # schema Schema {{
 #   query: Query
 #    mutation: Mutation

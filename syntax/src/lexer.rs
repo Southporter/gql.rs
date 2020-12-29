@@ -378,6 +378,14 @@ impl<'a> Lexer<'a> {
         self.get_next_token()
     }
 
+    fn ignore_comments(&mut self) -> LexerItem<'a> {
+        self.input.next(); // Consume #
+        if let Some((new_line_index, _new_line)) = self.input.find(|(_index, c)| *c == '\n') {
+            self.advance_to(new_line_index);
+        }
+        self.get_next_token()
+    }
+
     fn make_unexpected_character_error(&mut self) -> LexerItem<'a> {
         self.ended = true;
         Err(LexError::UnexpectedCharacter(self.get_current_location()))
@@ -808,7 +816,7 @@ text""""#,
 "#,
         );
         assert!(comments.is_ok());
-        assert!(comments.unwrap(), vec![Token::Start, Token::End,])
+        assert_eq!(comments.unwrap(), vec![Token::Start, Token::End,])
     }
 
     #[test]

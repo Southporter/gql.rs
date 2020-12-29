@@ -2,7 +2,7 @@ use crate::error::{ParseError, ParseResult, ValidationError};
 use crate::token::Token;
 use crate::validation::{self, ValidExtensionNode, ValidNode, ValidationResult};
 use std::convert::TryFrom;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub mod object_type_extension;
 use object_type_extension::ObjectTypeExtensionNode;
@@ -125,13 +125,13 @@ impl<'a> TryFrom<Token<'a>> for NamedTypeNode {
 
 #[derive(Debug, PartialEq)]
 pub struct ListTypeNode {
-    pub list_type: Rc<TypeNode>,
+    pub list_type: Arc<TypeNode>,
 }
 
 impl ListTypeNode {
     pub fn new(list_type: TypeNode) -> ListTypeNode {
         ListTypeNode {
-            list_type: Rc::new(list_type),
+            list_type: Arc::new(list_type),
         }
     }
 }
@@ -140,7 +140,7 @@ impl ListTypeNode {
 pub enum TypeNode {
     Named(NamedTypeNode),
     List(ListTypeNode),
-    NonNull(Rc<TypeNode>),
+    NonNull(Arc<TypeNode>),
 }
 
 #[derive(Debug, PartialEq)]
