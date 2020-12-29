@@ -42,7 +42,7 @@ mod tests {
     use crate::nodes::object_type_extension::*;
     use crate::nodes::*;
     use crate::token::{Location, Token};
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn it_handles_empty_document() {
@@ -88,7 +88,7 @@ mod tests {
                                 description: None,
                                 name: NameNode::from("id"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::Named(
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::Named(
                                     NamedTypeNode {
                                         name: NameNode::from("Int")
                                     }
@@ -99,7 +99,7 @@ mod tests {
                                 name: NameNode::from("strs"),
                                 arguments: None,
                                 field_type: TypeNode::List(ListTypeNode {
-                                    list_type: Rc::new(TypeNode::Named(NamedTypeNode {
+                                    list_type: Arc::new(TypeNode::Named(NamedTypeNode {
                                         name: NameNode::from("String")
                                     }))
                                 })
@@ -108,19 +108,19 @@ mod tests {
                                 description: None,
                                 name: NameNode::from("refIds"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::List(
-                                    ListTypeNode::new(TypeNode::NonNull(Rc::new(TypeNode::Named(
-                                        NamedTypeNode {
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::List(
+                                    ListTypeNode::new(TypeNode::NonNull(Arc::new(
+                                        TypeNode::Named(NamedTypeNode {
                                             name: NameNode::from("Int")
-                                        }
-                                    ))))
+                                        })
+                                    )))
                                 )))
                             },
                             FieldDefinitionNode {
                                 description: None,
                                 name: NameNode::from("someIds"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::List(
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::List(
                                     ListTypeNode::new(TypeNode::Named(NamedTypeNode {
                                         name: NameNode::from("Int")
                                     }))
@@ -144,7 +144,7 @@ mod tests {
                                     InputValueDefinitionNode {
                                         description: None,
                                         name: NameNode::from("arg2"),
-                                        input_type: TypeNode::NonNull(Rc::new(TypeNode::Named(
+                                        input_type: TypeNode::NonNull(Arc::new(TypeNode::Named(
                                             NamedTypeNode {
                                                 name: NameNode::from("Bool")
                                             }
@@ -451,7 +451,7 @@ interface Void @depricated {
                                 description: None,
                                 name: NameNode::from("void"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::Named(
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::Named(
                                     NamedTypeNode::from("Boolean")
                                 )))
                             }],
