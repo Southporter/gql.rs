@@ -132,6 +132,7 @@ impl<'a> Lexer<'a> {
                 ')' => self.lex_close_paren(),
                 '[' => self.lex_open_square(),
                 ']' => self.lex_close_square(),
+                '#' => self.ignore_comments(),
                 ' ' | '\t' | ',' => self.ignore_whitespace(),
                 '\n' => self.ignore_newline(),
                 '"' => self.lex_string(index),
@@ -374,6 +375,14 @@ impl<'a> Lexer<'a> {
 
     fn ignore_whitespace(&mut self) -> LexerItem<'a> {
         self.advance();
+        self.get_next_token()
+    }
+
+    fn ignore_comments(&mut self) -> LexerItem<'a> {
+        self.input.next(); // Consume #
+        if let Some((new_line_index, _new_line)) = self.input.find(|(_index, c)| *c == '\n') {
+            self.advance_to(new_line_index);
+        }
         self.get_next_token()
     }
 
@@ -796,6 +805,18 @@ text""""#,
                 Token::End,
             ]
         );
+    }
+
+    #[test]
+    fn lex_comment() {
+        println!("Test comment");
+        let comments = tokenize(
+            r#"# this is a comment
+# And so is this
+"#,
+        );
+        assert!(comments.is_ok());
+        assert_eq!(comments.unwrap(), vec![Token::Start, Token::End,])
     }
 
     #[test]

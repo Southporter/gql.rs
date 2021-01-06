@@ -5,7 +5,7 @@ use crate::nodes::object_type_extension::ObjectTypeExtensionNode;
 use crate::nodes::*;
 use crate::token::{Location, Token};
 use std::iter::{Iterator, Peekable};
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct AST<'i> {
     lexer: Peekable<Lexer<'i>>,
@@ -155,17 +155,24 @@ impl<'i> AST<'i> {
         let description = self.parse_description()?;
         let tok = self.unwrap_peeked_token()?;
         match tok {
-            Token::Name(_, val) => match *val {
+            Token::Name(loc, val) => match *val {
                 "type" | "enum" | "union" | "interface" | "input" | "scalar" => {
                     Ok(DefinitionNode::TypeSystem(TypeSystemDefinitionNode::Type(
                         self.parse_type(description)?,
                     )))
                 }
+                "schema" => Ok(DefinitionNode::TypeSystem(
+                    TypeSystemDefinitionNode::Schema(self.parse_schema(description)?),
+                )),
                 "extend" => Ok(DefinitionNode::Extension(
                     self.parse_type_extension(description)?,
                 )),
                 "query" | "fragment" => Ok(DefinitionNode::Executable(self.parse_executable()?)),
-                _ => Err(ParseError::BadValue),
+                name => Err(ParseError::UnexpectedKeyword {
+                    expected: "A valid GraphQL keyword".into(),
+                    received: name.into(),
+                    location: *loc,
+                }),
             },
             Token::OpenBrace(_) => Ok(DefinitionNode::Executable(self.parse_executable()?)),
             _ => Err(ParseError::UnexpectedToken {
@@ -393,7 +400,7 @@ impl<'i> AST<'i> {
             )?);
         }
         if let Some(_) = self.expect_optional_token(&Token::Bang(Location::ignored())) {
-            field_type = TypeNode::NonNull(Rc::new(field_type));
+            field_type = TypeNode::NonNull(Arc::new(field_type));
         }
         Ok(field_type)
     }
@@ -537,15 +544,84 @@ impl<'i> AST<'i> {
         })
     }
 
+    fn parse_schema(&mut self, description: Description) -> ParseResult<SchemaDefinitionNode> {
+        match self.unwrap_next_token()? {
+            Token::Name(location, keyword) => match keyword {
+                "schema" => {
+                    let directives = self.parse_directives()?;
+                    let operations = self.parse_schema_operation_types()?;
+                    Ok(SchemaDefinitionNode {
+                        description,
+                        directives,
+                        operations,
+                    })
+                }
+                _ => Err(ParseError::UnexpectedKeyword {
+                    expected: "Keyword `schema`".into(),
+                    received: keyword.into(),
+                    location,
+                }),
+            },
+            tok => Err(ParseError::UnexpectedToken {
+                expected: "Token<Name> with value of `schema`".into(),
+                received: tok.to_string(),
+                location: tok.location(),
+            }),
+        }
+    }
+
+    fn parse_schema_operation_types(&mut self) -> ParseResult<Vec<OperationTypeDefinitionNode>> {
+        self.expect_token(Token::OpenBrace(Location::ignored()))?;
+        let mut operations = Vec::new();
+        loop {
+            if let Some(_) = self.expect_optional_token(&Token::CloseBrace(Location::ignored())) {
+                break;
+            }
+
+            let operation = self.parse_schema_operation()?;
+            self.expect_token(Token::Colon(Location::ignored()))?;
+            operations.push(OperationTypeDefinitionNode {
+                operation,
+                node_type: NamedTypeNode::new(self.unwrap_next_token()?)?,
+            })
+        }
+        Ok(operations)
+    }
+
+    fn parse_schema_operation(&mut self) -> ParseResult<Operation> {
+        match self.unwrap_next_token()? {
+            Token::Name(loc, name) => match name {
+                "query" => Ok(Operation::Query),
+                "mutation" => Ok(Operation::Mutation),
+                "subscription" => Ok(Operation::Subscription),
+                _ => Err(ParseError::UnexpectedKeyword {
+                    expected: "one of `query`, `mutation`, or `subscription` as schema operations"
+                        .into(),
+                    received: name.into(),
+                    location: loc,
+                }),
+            },
+            tok => Err(ParseError::UnexpectedToken {
+                expected: "Token<Name>".into(),
+                received: tok.to_string(),
+                location: tok.location(),
+            }),
+        }
+    }
+
     fn parse_executable(&mut self) -> ParseResult<ExecutableDefinitionNode> {
         let tok = self.unwrap_peeked_token()?;
         match tok {
-            Token::Name(_, val) => match *val {
+            Token::Name(location, val) => match *val {
                 "query" /* | "mutation" | "subscription" */ => Ok(ExecutableDefinitionNode::Operation(self.parse_operation_type()?)),
                 "fragment" =>
                     Ok(ExecutableDefinitionNode::Fragment(self.parse_fragment_definition()?))
                 ,
-                _ => Err(ParseError::BadValue),
+                keyword => Err(ParseError::UnexpectedKeyword {
+                    expected: "One of `query` or `fragment`".into(),
+                    received: keyword.into(),
+                    location: *location,
+                }),
             },
             Token::OpenBrace(_) => Ok(ExecutableDefinitionNode::Operation(
                 OperationTypeNode::Query(self.parse_anonymous_query()?),
@@ -591,7 +667,7 @@ impl<'i> AST<'i> {
         })
     }
 
-    fn parse_variables(&mut self) -> ParseResult<Variables> {
+    fn parse_variables(&mut self) -> ParseResult<Option<Variables>> {
         let mut variables = Vec::new();
         if let Some(_) = self.expect_optional_token(&Token::OpenParen(Location::ignored())) {
             loop {
@@ -602,7 +678,11 @@ impl<'i> AST<'i> {
                 variables.push(self.parse_variable_definition()?);
             }
         }
-        Ok(variables)
+        if variables.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(variables))
+        }
     }
 
     fn parse_variable_definition(&mut self) -> ParseResult<VariableDefinitionNode> {
@@ -625,7 +705,7 @@ impl<'i> AST<'i> {
         let selections = self.parse_selection_set()?;
         Ok(QueryDefinitionNode {
             name: None,
-            variables: vec![],
+            variables: None,
             selections,
         })
     }

@@ -18,6 +18,7 @@ mod ast;
 pub mod document;
 pub mod error;
 pub mod lexer;
+pub mod macros;
 mod nodes;
 pub mod token;
 mod validation;
@@ -41,7 +42,7 @@ mod tests {
     use crate::nodes::object_type_extension::*;
     use crate::nodes::*;
     use crate::token::{Location, Token};
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn it_handles_empty_document() {
@@ -87,7 +88,7 @@ mod tests {
                                 description: None,
                                 name: NameNode::from("id"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::Named(
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::Named(
                                     NamedTypeNode {
                                         name: NameNode::from("Int")
                                     }
@@ -98,7 +99,7 @@ mod tests {
                                 name: NameNode::from("strs"),
                                 arguments: None,
                                 field_type: TypeNode::List(ListTypeNode {
-                                    list_type: Rc::new(TypeNode::Named(NamedTypeNode {
+                                    list_type: Arc::new(TypeNode::Named(NamedTypeNode {
                                         name: NameNode::from("String")
                                     }))
                                 })
@@ -107,19 +108,19 @@ mod tests {
                                 description: None,
                                 name: NameNode::from("refIds"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::List(
-                                    ListTypeNode::new(TypeNode::NonNull(Rc::new(TypeNode::Named(
-                                        NamedTypeNode {
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::List(
+                                    ListTypeNode::new(TypeNode::NonNull(Arc::new(
+                                        TypeNode::Named(NamedTypeNode {
                                             name: NameNode::from("Int")
-                                        }
-                                    ))))
+                                        })
+                                    )))
                                 )))
                             },
                             FieldDefinitionNode {
                                 description: None,
                                 name: NameNode::from("someIds"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::List(
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::List(
                                     ListTypeNode::new(TypeNode::Named(NamedTypeNode {
                                         name: NameNode::from("Int")
                                     }))
@@ -143,7 +144,7 @@ mod tests {
                                     InputValueDefinitionNode {
                                         description: None,
                                         name: NameNode::from("arg2"),
-                                        input_type: TypeNode::NonNull(Rc::new(TypeNode::Named(
+                                        input_type: TypeNode::NonNull(Arc::new(TypeNode::Named(
                                             NamedTypeNode {
                                                 name: NameNode::from("Bool")
                                             }
@@ -450,7 +451,7 @@ interface Void @depricated {
                                 description: None,
                                 name: NameNode::from("void"),
                                 arguments: None,
-                                field_type: TypeNode::NonNull(Rc::new(TypeNode::Named(
+                                field_type: TypeNode::NonNull(Arc::new(TypeNode::Named(
                                     NamedTypeNode::from("Boolean")
                                 )))
                             }],
@@ -629,7 +630,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
-                            variables: vec![],
+                            variables: None,
                             selections: vec![
                                 Selection::Field(FieldNode {
                                     name: NameNode::from("user"),
@@ -707,7 +708,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: None,
-                            variables: vec![],
+                            variables: None,
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
                                 alias: None,
@@ -779,7 +780,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: Some(NameNode::from("TestQuery")),
-                            variables: vec![],
+                            variables: None,
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
                                 alias: None,
@@ -814,7 +815,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                     ExecutableDefinitionNode::Operation(OperationTypeNode::Query(
                         QueryDefinitionNode {
                             name: Some(NameNode::from("TestQuery")),
-                            variables: vec![
+                            variables: Some(vec![
                                 VariableDefinitionNode {
                                     variable: VariableNode::from("email"),
                                     variable_type: TypeNode::Named(NamedTypeNode::from("Email")),
@@ -827,7 +828,7 @@ scalar Time @format(pattern: "HH:mm:ss")"#,
                                         value: true,
                                     }))
                                 }
-                            ],
+                            ]),
                             selections: vec![Selection::Field(FieldNode {
                                 name: NameNode::from("user"),
                                 alias: None,
@@ -908,6 +909,46 @@ fragment friendFields on User @traverse(depth: 1) {
                         }
                     ))
                 ]
+            }
+        )
+    }
+
+    #[test]
+    fn parse_schema_definition() {
+        let res = parse(
+            r#"schema @depricated {
+            query: Query,
+            mutation: Mutation,
+            subscription: Subscription,
+        }"#,
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![DefinitionNode::TypeSystem(
+                    TypeSystemDefinitionNode::Schema(SchemaDefinitionNode {
+                        description: None,
+                        directives: Some(vec![DirectiveNode {
+                            name: NameNode::from("depricated"),
+                            arguments: None,
+                        }]),
+                        operations: vec![
+                            OperationTypeDefinitionNode {
+                                operation: Operation::Query,
+                                node_type: NamedTypeNode::from("Query"),
+                            },
+                            OperationTypeDefinitionNode {
+                                operation: Operation::Mutation,
+                                node_type: NamedTypeNode::from("Mutation"),
+                            },
+                            OperationTypeDefinitionNode {
+                                operation: Operation::Subscription,
+                                node_type: NamedTypeNode::from("Subscription"),
+                            },
+                        ]
+                    })
+                ),]
             }
         )
     }

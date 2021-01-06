@@ -2,7 +2,7 @@ use crate::error::{ParseError, ParseResult, ValidationError};
 use crate::token::Token;
 use crate::validation::{self, ValidExtensionNode, ValidNode, ValidationResult};
 use std::convert::TryFrom;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub mod object_type_extension;
 use object_type_extension::ObjectTypeExtensionNode;
@@ -125,13 +125,13 @@ impl<'a> TryFrom<Token<'a>> for NamedTypeNode {
 
 #[derive(Debug, PartialEq)]
 pub struct ListTypeNode {
-    pub list_type: Rc<TypeNode>,
+    pub list_type: Arc<TypeNode>,
 }
 
 impl ListTypeNode {
     pub fn new(list_type: TypeNode) -> ListTypeNode {
         ListTypeNode {
-            list_type: Rc::new(list_type),
+            list_type: Arc::new(list_type),
         }
     }
 }
@@ -140,7 +140,7 @@ impl ListTypeNode {
 pub enum TypeNode {
     Named(NamedTypeNode),
     List(ListTypeNode),
-    NonNull(Rc<TypeNode>),
+    NonNull(Arc<TypeNode>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -328,29 +328,31 @@ impl EnumValueDefinitionNode {
     }
 }
 
-// pub struct OperationDefinitionNode {
-//     kind: OPERATION,
-//     // location: Location,
-//     operation: OperationTypeNode,
-//     name: Option<Token>,
-//     variables: Vec<VariableDefinitionNode>,
-//     directives: Vec<DirectiveDefinitionNode>,
-//     selection_set: Vec<SelectionSetNode>
-// }
+#[derive(Debug, PartialEq)]
+pub enum Operation {
+    Query,
+    Mutation,
+    Subscription,
+}
 
-const SCHEMA: &'static str = "SchemaDefinition";
+#[derive(Debug, PartialEq)]
+pub struct OperationTypeDefinitionNode {
+    pub operation: Operation,
+    pub node_type: NamedTypeNode,
+}
+
 #[derive(Debug, PartialEq)]
 pub struct SchemaDefinitionNode {
-    kind: &'static str,
-    description: Description,
-    // directives: Vec<DirectiveDefinitionNode>,
-    // operations: Vec<OperationTypeDefinitionNode>,
+    pub description: Description,
+    pub directives: Option<Directives>,
+    pub operations: Vec<OperationTypeDefinitionNode>,
 }
 impl SchemaDefinitionNode {
     pub fn new() -> SchemaDefinitionNode {
         SchemaDefinitionNode {
-            kind: SCHEMA,
             description: None,
+            directives: None,
+            operations: vec![],
         }
     }
 }
@@ -375,6 +377,16 @@ impl ScalarTypeDefinitionNode {
     pub fn with_directives(&mut self, directives: Option<Directives>) -> &mut Self {
         self.directives = directives;
         self
+    }
+}
+
+impl From<&str> for ScalarTypeDefinitionNode {
+    fn from(name: &str) -> Self {
+        Self {
+            name: NameNode::from(name),
+            description: None,
+            directives: None,
+        }
     }
 }
 
@@ -682,7 +694,7 @@ pub enum Selection {
 #[derive(Debug, PartialEq)]
 pub struct QueryDefinitionNode {
     pub name: Option<NameNode>,
-    pub variables: Variables,
+    pub variables: Option<Variables>,
     pub selections: Selections,
 }
 

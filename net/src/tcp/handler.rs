@@ -3,27 +3,30 @@ use tokio;
 use tokio::io;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::stream::StreamExt;
+use tokio::sync::{mpsc::Sender, oneshot};
 
 use crate::connection::Connection;
-use syntax;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
 
-fn handle_database_request(input: &str) -> String {
-    let res = syntax::parse(input);
-    match res {
-        Ok(document) => document.to_string(),
-        Err(parse_error) => parse_error.to_string(),
-    }
-}
+type DbSender = Sender<(String, oneshot::Sender<String>)>;
 
-async fn handle_connection(mut conn: Connection<TcpStream>) -> io::Result<()> {
+async fn handle_connection(mut conn: Connection<TcpStream>, mut send: DbSender) -> io::Result<()> {
     loop {
         match conn.read_message().await {
             Ok(Some(content)) => {
-                let response = handle_database_request(&content);
-                let _finished = conn.write_message(&response).await;
+                let (send_one, receive_one) = oneshot::channel();
+                match send.send((content, send_one)).await.ok() {
+                    Some(()) => info!("Sent to database successfully"),
+                    None => info!("Send was unsuccessful"),
+                };
+                match receive_one.await {
+                    Ok(response) => {
+                        conn.write_message(&response).await?;
+                    }
+                    Err(e) => info!("Error from db: {}", e),
+                };
             }
             Ok(None) => {
                 debug!("Message not read");
@@ -34,16 +37,21 @@ async fn handle_connection(mut conn: Connection<TcpStream>) -> io::Result<()> {
     Ok(())
 }
 
-pub async fn handle_tcp(port: u32) -> io::Result<()> {
+pub async fn handle_tcp(port: u32, send: DbSender) -> io::Result<()> {
     let mut listener = TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
 
     while let Some(conn) = listener.next().await {
         info!("Got incoming");
         match conn {
             Ok(stream) => {
-                tokio::spawn(async move { handle_connection(Connection::new(stream)).await });
+                let sender = send.clone();
+                tokio::spawn(
+                    async move { handle_connection(Connection::new(stream), sender).await },
+                );
             }
-            Err(_) => {}
+            Err(e) => {
+                info!("Error getting connection: {}", e);
+            }
         }
     }
 

@@ -16,7 +16,6 @@ appenders:
   #   encoder:
   #     pattern: "{d} - {m}{n}"
 
-# Set the default logging level to "warn" and attach the "stdout" appender to the root
 root:
   level: info
   appenders:
@@ -27,6 +26,8 @@ root:
 loggers:
   net:
     level: debug
+  syntax:
+    level: info
 
 
   # Route log events sent to the "app::requests" logger to the "requests" appender,
