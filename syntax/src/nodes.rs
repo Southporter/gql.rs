@@ -328,29 +328,31 @@ impl EnumValueDefinitionNode {
     }
 }
 
-// pub struct OperationDefinitionNode {
-//     kind: OPERATION,
-//     // location: Location,
-//     operation: OperationTypeNode,
-//     name: Option<Token>,
-//     variables: Vec<VariableDefinitionNode>,
-//     directives: Vec<DirectiveDefinitionNode>,
-//     selection_set: Vec<SelectionSetNode>
-// }
+#[derive(Debug, PartialEq)]
+pub enum Operation {
+    Query,
+    Mutation,
+    Subscription,
+}
 
-const SCHEMA: &'static str = "SchemaDefinition";
+#[derive(Debug, PartialEq)]
+pub struct OperationTypeDefinitionNode {
+    pub operation: Operation,
+    pub node_type: NamedTypeNode,
+}
+
 #[derive(Debug, PartialEq)]
 pub struct SchemaDefinitionNode {
-    kind: &'static str,
-    description: Description,
-    // directives: Vec<DirectiveDefinitionNode>,
-    // operations: Vec<OperationTypeDefinitionNode>,
+    pub description: Description,
+    pub directives: Option<Directives>,
+    pub operations: Vec<OperationTypeDefinitionNode>,
 }
 impl SchemaDefinitionNode {
     pub fn new() -> SchemaDefinitionNode {
         SchemaDefinitionNode {
-            kind: SCHEMA,
             description: None,
+            directives: None,
+            operations: vec![],
         }
     }
 }

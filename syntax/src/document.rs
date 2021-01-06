@@ -2,6 +2,7 @@
 //!
 //! [`Document`]: ../struct.Document.html
 use crate::nodes::DefinitionNode;
+use log::debug;
 
 /// The Document is the root of a GraphQL schema and/or query. It contains a list of GraphQL
 /// definitions. These can be anything from types, enums, unions, etc. to a query.
@@ -152,13 +153,13 @@ Used as a unique identifier.
 scalar ID
 
 
-# """Schema
-# The root of any interaction with the database.
-# """
-# schema Schema {{
-#   query: Query
-#    mutation: Mutation
-#}}
+"""Schema
+The root of any interaction with the database.
+"""
+schema {{
+  query: Query
+  mutation: Mutation
+}}
 "#,
             i8_min = i8::MIN,
             i8_max = i8::MAX,
@@ -182,8 +183,7 @@ scalar ID
             u128_max = u128::MAX,
         ));
 
-        // .expect("Default schema is invalid")
-        println!("Debugging: {:?}", doc);
+        debug!("Debugging: {:?}", doc);
         doc.expect("Default schema is invalid")
     }
 }

@@ -912,4 +912,44 @@ fragment friendFields on User @traverse(depth: 1) {
             }
         )
     }
+
+    #[test]
+    fn parse_schema_definition() {
+        let res = parse(
+            r#"schema @depricated {
+            query: Query,
+            mutation: Mutation,
+            subscription: Subscription,
+        }"#,
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            Document {
+                definitions: vec![DefinitionNode::TypeSystem(
+                    TypeSystemDefinitionNode::Schema(SchemaDefinitionNode {
+                        description: None,
+                        directives: Some(vec![DirectiveNode {
+                            name: NameNode::from("depricated"),
+                            arguments: None,
+                        }]),
+                        operations: vec![
+                            OperationTypeDefinitionNode {
+                                operation: Operation::Query,
+                                node_type: NamedTypeNode::from("Query"),
+                            },
+                            OperationTypeDefinitionNode {
+                                operation: Operation::Mutation,
+                                node_type: NamedTypeNode::from("Mutation"),
+                            },
+                            OperationTypeDefinitionNode {
+                                operation: Operation::Subscription,
+                                node_type: NamedTypeNode::from("Subscription"),
+                            },
+                        ]
+                    })
+                ),]
+            }
+        )
+    }
 }
