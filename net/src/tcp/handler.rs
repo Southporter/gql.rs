@@ -49,10 +49,7 @@ pub async fn handle_tcp(port: u32, send: DbSender) -> io::Result<()> {
             }
             Err(e) => {
                 info!("Error getting connection: {}", e);
-                // break;
             }
         }
     }
-
-    // Ok(())
 }
