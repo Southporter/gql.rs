@@ -12,9 +12,8 @@ pub(crate) fn listen(
     mut database: Database,
     config: &Config,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut runtime = Builder::new()
-        .threaded_scheduler()
-        .core_threads(config.num_threads)
+    let runtime = Builder::new_multi_thread()
+        .worker_threads(config.num_threads)
         .thread_name("gql-worker")
         .enable_io()
         .build()

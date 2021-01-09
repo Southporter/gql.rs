@@ -82,7 +82,7 @@ mod tests {
     use bytes::BufMut;
     use core::pin::Pin;
     use core::task::{Context, Poll};
-    use tokio::io;
+    use tokio::io::{self, ReadBuf};
     // use tokio::stream::{Stream, StreamExt};
 
     #[derive(Debug)]
@@ -95,23 +95,24 @@ mod tests {
         fn poll_read(
             mut self: Pin<&mut Self>,
             _cx: &mut Context,
-            buf: &mut [u8],
-        ) -> Poll<io::Result<usize>> {
+            buf: &mut ReadBuf,
+        ) -> Poll<io::Result<()>> {
             match self.reader.pop() {
                 Some(content) => {
-                    if content.len() > buf.len() {
-                        for i in 0..buf.len() {
-                            buf[i] = content[i];
-                        }
-                        Poll::Ready(Ok(buf.len()))
-                    } else {
-                        for i in 0..content.len() {
-                            buf[i] = content[i];
-                        }
-                        Poll::Ready(Ok(content.len()))
-                    }
+                    buf.put_slice(content);
+                    // if content.len() > buf.len() {
+                    //     for i in 0..buf.len() {
+                    //         buf[i] = content[i];
+                    //     }
+                    //     Poll::Ready(Ok(()))
+                    // } else {
+                    //     for i in 0..content.len() {
+                    //         buf[i] = content[i];
+                    //     }
+                    Poll::Ready(Ok(()))
+                    // }
                 }
-                None => Poll::Ready(Ok(0)),
+                None => Poll::Ready(Ok(())),
             }
         }
     }

@@ -8,7 +8,7 @@ edition = "2018"
 syntax = { path = "../syntax" }
 net = { path = "../net" }
 clap = { version = "2", features = ["yaml"] }
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 log = "0.4"
 log4rs = "0.13"
