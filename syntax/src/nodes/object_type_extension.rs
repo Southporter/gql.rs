@@ -37,6 +37,12 @@ impl ObjectTypeExtensionNode {
     }
 }
 
+impl Named for ObjectTypeExtensionNode {
+    fn name(&self) -> String {
+        self.name.into()
+    }
+}
+
 impl NodeWithFields for ObjectTypeExtensionNode {
     fn get_fields(&self) -> &[FieldDefinitionNode] {
         if let Some(fields) = &self.fields {

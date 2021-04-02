@@ -83,7 +83,6 @@ mod tests {
     use core::pin::Pin;
     use core::task::{Context, Poll};
     use tokio::io::{self, ReadBuf};
-    // use tokio::stream::{Stream, StreamExt};
 
     #[derive(Debug)]
     struct MockStream<'a> {
@@ -100,17 +99,7 @@ mod tests {
             match self.reader.pop() {
                 Some(content) => {
                     buf.put_slice(content);
-                    // if content.len() > buf.len() {
-                    //     for i in 0..buf.len() {
-                    //         buf[i] = content[i];
-                    //     }
-                    //     Poll::Ready(Ok(()))
-                    // } else {
-                    //     for i in 0..content.len() {
-                    //         buf[i] = content[i];
-                    //     }
                     Poll::Ready(Ok(()))
-                    // }
                 }
                 None => Poll::Ready(Ok(())),
             }

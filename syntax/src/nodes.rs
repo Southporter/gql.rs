@@ -7,6 +7,10 @@ use std::sync::Arc;
 pub mod object_type_extension;
 use object_type_extension::ObjectTypeExtensionNode;
 
+pub trait Named {
+    fn name(&self) -> String;
+}
+
 pub trait NodeWithFields {
     fn get_fields(&self) -> &[FieldDefinitionNode] {
         &[]
@@ -32,6 +36,12 @@ impl NameNode {
                 location: token.location(),
             }),
         }
+    }
+}
+
+impl From<NameNode> for String {
+    fn from(name_node: NameNode) -> String {
+        name_node.value.clone()
     }
 }
 
@@ -357,6 +367,12 @@ impl SchemaDefinitionNode {
     }
 }
 
+impl Named for SchemaDefinitionNode {
+    fn name(&self) -> String {
+        String::from("schema")
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct ScalarTypeDefinitionNode {
     pub description: Description,
@@ -377,6 +393,12 @@ impl ScalarTypeDefinitionNode {
     pub fn with_directives(&mut self, directives: Option<Directives>) -> &mut Self {
         self.directives = directives;
         self
+    }
+}
+
+impl Named for ScalarTypeDefinitionNode {
+    fn name(&self) -> String {
+        self.name.into()
     }
 }
 
@@ -434,6 +456,12 @@ impl ObjectTypeDefinitionNode {
     }
 }
 
+impl Named for ObjectTypeDefinitionNode {
+    fn name(&self) -> String {
+        self.name.into()
+    }
+}
+
 impl NodeWithFields for ObjectTypeDefinitionNode {
     fn get_fields(&self) -> &[FieldDefinitionNode] {
         &self.fields
@@ -459,6 +487,12 @@ impl InputTypeDefinitionNode {
     pub fn with_fields(&mut self, fields: Vec<InputValueDefinitionNode>) -> &mut Self {
         self.fields = fields;
         self
+    }
+}
+
+impl Named for InputTypeDefinitionNode {
+    fn name(&self) -> String {
+        self.name.into()
     }
 }
 
@@ -490,6 +524,12 @@ impl InterfaceTypeDefinitionNode {
     }
 }
 
+impl Named for InterfaceTypeDefinitionNode {
+    fn name(&self) -> String {
+        self.name.into()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct EnumTypeDefinitionNode {
     pub description: Description,
@@ -511,6 +551,12 @@ impl EnumTypeDefinitionNode {
             directives,
             values,
         })
+    }
+}
+
+impl Named for EnumTypeDefinitionNode {
+    fn name(&self) -> String {
+        self.name.into()
     }
 }
 
@@ -538,6 +584,12 @@ impl UnionTypeDefinitionNode {
     }
 }
 
+impl Named for UnionTypeDefinitionNode {
+    fn name(&self) -> String {
+        self.name.into()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TypeDefinitionNode {
     Scalar(ScalarTypeDefinitionNode),
@@ -548,6 +600,19 @@ pub enum TypeDefinitionNode {
     Input(InputTypeDefinitionNode),
 }
 
+impl Named for TypeDefinitionNode {
+    fn name(&self) -> String {
+        match self {
+            TypeDefinitionNode::Scalar(scalar) => format!("scalar__{}", scalar.name()),
+            TypeDefinitionNode::Object(object) => format!("object__{}", object.name()),
+            TypeDefinitionNode::Interface(i) => format!("interface__{}", i.name()),
+            TypeDefinitionNode::Union(u) => format!("union__{}", u.name()),
+            TypeDefinitionNode::Enum(e) => format!("enum__{}", e.name()),
+            TypeDefinitionNode::Input(input) => format!("input__{}", input.name()),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TypeSystemDefinitionNode {
     Schema(SchemaDefinitionNode),
@@ -555,9 +620,26 @@ pub enum TypeSystemDefinitionNode {
     // Directive(DirectiveDefinitionNode),
 }
 
+impl Named for TypeSystemDefinitionNode {
+    fn name(&self) -> String {
+        match self {
+            TypeSystemDefinitionNode::Schema(schema) => schema.name(),
+            TypeSystemDefinitionNode::Type(type_definition) => type_definition.name(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TypeSystemExtensionNode {
     Object(ObjectTypeExtensionNode),
+}
+
+impl Named for TypeSystemExtensionNode {
+    fn name(&self) -> String {
+        match self {
+            TypeSystemExtensionNode::Object(object) => object.name(),
+        }
+    }
 }
 
 type Selections = Vec<Selection>;
@@ -685,6 +767,12 @@ impl FragmentDefinitionNode {
     }
 }
 
+impl Named for FragmentDefinitionNode {
+    fn name(&self) -> String {
+        self.name.into()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Selection {
     Field(FieldNode),
@@ -698,11 +786,28 @@ pub struct QueryDefinitionNode {
     pub selections: Selections,
 }
 
+impl Named for QueryDefinitionNode {
+    fn name(&self) -> String {
+        match self.name {
+            Some(name) => name.into(),
+            None => "anonymous".into(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum OperationTypeNode {
     Query(QueryDefinitionNode),
     // Mutation,
     // Subscription,
+}
+
+impl Named for OperationTypeNode {
+    fn name(&self) -> String {
+        match self {
+            OperationTypeNode::Query(query) => format!("query__{}", query.name()),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -711,9 +816,28 @@ pub enum ExecutableDefinitionNode {
     Fragment(FragmentDefinitionNode),
 }
 
+impl Named for ExecutableDefinitionNode {
+    fn name(&self) -> String {
+        match self {
+            ExecutableDefinitionNode::Operation(operation) => operation.name(),
+            ExecutableDefinitionNode::Fragment(fragment) => fragment.name(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum DefinitionNode {
     Executable(ExecutableDefinitionNode),
     TypeSystem(TypeSystemDefinitionNode),
     Extension(TypeSystemExtensionNode),
+}
+
+impl Named for DefinitionNode {
+    fn name(&self) -> String {
+        match self {
+            DefinitionNode::Executable(executable) => executable.name(),
+            DefinitionNode::TypeSystem(typeSystem) => typeSystem.name(),
+            DefinitionNode::Extension(extension) => extension.name(),
+        }
+    }
 }

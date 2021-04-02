@@ -20,6 +20,23 @@ impl Document {
     pub fn new(definitions: Vec<DefinitionNode>) -> Document {
         Document { definitions }
     }
+
+    /// Merge two documents together
+    pub fn merge(&mut self, incoming: Document) -> Result<(), String> {
+        let contains_query = incoming
+            .definitions
+            .iter()
+            .find(|d| match d {
+                DefinitionNode::Executable(_) => true,
+                _ => false,
+            })
+            .is_some();
+        if contains_query {
+            Err("Cannot merge Documents containing Executable Definitions".into())
+        } else {
+            Ok(())
+        }
+    }
 }
 
 use std::fmt;
